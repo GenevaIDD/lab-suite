@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Generated artefacts
+graphify-out/
+dist/
+build/
+node_modules/
+
+# Env files (per-project .env files should also be ignored within their own dirs)
+.env
+.env.local
+**/.env
+**/.env.local
+
+# Claude Code per-user settings & worktrees (commit launch.json + global settings.json only)
+.claude/settings.local.json
+.claude/worktrees/

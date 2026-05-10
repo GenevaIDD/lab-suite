@@ -1,0 +1,291 @@
+-- ============================================================
+-- Lab Inventory System — Supabase Schema
+-- Run this in your Supabase SQL Editor to set up the database.
+-- ============================================================
+
+-- Extensions
+create extension if not exists "uuid-ossp";
+
+-- ============================================================
+-- Enums
+-- ============================================================
+
+create type lab_location as enum ('lab_1', 'lab_2');
+create type user_role as enum ('manager', 'supervisor', 'tech');
+create type currency_code as enum ('USD', 'EUR', 'GBP', 'CHF', 'BIF', 'CDF');
+
+-- ============================================================
+-- Profiles (extends Supabase auth.users)
+-- ============================================================
+
+create table profiles (
+  id          uuid primary key references auth.users(id) on delete cascade,
+  full_name   text not null,
+  email       text not null,
+  role        user_role not null default 'tech',
+  created_at  timestamptz not null default now()
+);
+
+-- Auto-create profile on signup
+create or replace function handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into profiles (id, full_name, email)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''), new.email);
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure handle_new_user();
+
+-- ============================================================
+-- Equipment
+-- ============================================================
+
+create table equipment (
+  id              uuid primary key default uuid_generate_v4(),
+  name            text not null,
+  category        text not null,
+  serial_number   text,
+  lab             lab_location not null,
+  supplier        text,
+  vendor_contact  text,
+  purchase_date   date,
+  warranty_expiry date,
+  cost            numeric(12, 2),
+  currency        currency_code,
+  notes           text,
+  photo_urls      text[] not null default '{}',
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create index equipment_lab_idx on equipment(lab);
+
+-- ============================================================
+-- Maintenance Schedules
+-- Each equipment can have multiple maintenance schedules
+-- (e.g., "quarterly filter clean", "annual calibration")
+-- ============================================================
+
+create table maintenance_schedules (
+  id              uuid primary key default uuid_generate_v4(),
+  equipment_id    uuid not null references equipment(id) on delete cascade,
+  label           text not null,         -- e.g. "Quarterly filter clean"
+  interval_days   int not null,          -- recurrence interval
+  lead_days       int not null default 60, -- how many days before due to alert
+  next_due        date not null,
+  last_alerted_at timestamptz,
+  created_at      timestamptz not null default now()
+);
+
+create index ms_equipment_idx on maintenance_schedules(equipment_id);
+create index ms_next_due_idx  on maintenance_schedules(next_due);
+
+-- ============================================================
+-- Maintenance Logs
+-- Record when maintenance was performed
+-- ============================================================
+
+create table maintenance_logs (
+  id            uuid primary key default uuid_generate_v4(),
+  schedule_id   uuid not null references maintenance_schedules(id) on delete cascade,
+  equipment_id  uuid not null references equipment(id) on delete cascade,
+  performed_at  date not null,
+  performed_by  text,
+  notes         text,
+  created_at    timestamptz not null default now()
+);
+
+create index ml_equipment_idx on maintenance_logs(equipment_id);
+create index ml_schedule_idx  on maintenance_logs(schedule_id);
+
+-- ============================================================
+-- Item Types
+-- e.g. "2µl cryotubes", "LB Broth", "Nitrile gloves (M)"
+-- ============================================================
+
+create table item_types (
+  id                  uuid primary key default uuid_generate_v4(),
+  name                text not null,
+  category            text not null,   -- e.g. "consumables", "reagents", "PPE"
+  unit                text not null,   -- e.g. "boxes", "mL", "units"
+  min_threshold       numeric(10, 2) not null default 0,
+  low_stock_alerted_at timestamptz,
+  notes               text,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+
+-- ============================================================
+-- Item Sources
+-- Different manufacturers/suppliers for the same item type
+-- Stock is pooled; source is recorded per-delivery only
+-- ============================================================
+
+create table item_sources (
+  id            uuid primary key default uuid_generate_v4(),
+  item_type_id  uuid not null references item_types(id) on delete cascade,
+  manufacturer  text not null,
+  supplier      text,
+  notes         text,
+  created_at    timestamptz not null default now()
+);
+
+create index is_item_type_idx on item_sources(item_type_id);
+
+-- ============================================================
+-- Stock Counts
+-- Ad-hoc physical count; one record per item per lab per audit
+-- ============================================================
+
+create table stock_counts (
+  id            uuid primary key default uuid_generate_v4(),
+  item_type_id  uuid not null references item_types(id) on delete cascade,
+  lab           lab_location not null,
+  quantity      numeric(10, 2) not null,
+  counted_at    timestamptz not null default now(),
+  counted_by    text,
+  notes         text,
+  created_at    timestamptz not null default now()
+);
+
+create index sc_item_type_idx on stock_counts(item_type_id);
+create index sc_counted_at_idx on stock_counts(counted_at desc);
+
+-- ============================================================
+-- Deliveries
+-- Incoming stock; records source/manufacturer per delivery
+-- ============================================================
+
+create table deliveries (
+  id              uuid primary key default uuid_generate_v4(),
+  item_type_id    uuid not null references item_types(id) on delete cascade,
+  item_source_id  uuid references item_sources(id) on delete set null,
+  lab             lab_location not null,
+  quantity        numeric(10, 2) not null,
+  lot_number      text,
+  expiry_date     date,
+  received_at     timestamptz not null default now(),
+  received_by     text,
+  notes           text,
+  created_at      timestamptz not null default now()
+);
+
+create index dv_item_type_idx on deliveries(item_type_id);
+create index dv_received_at_idx on deliveries(received_at desc);
+
+-- ============================================================
+-- View: current stock per item type per lab
+-- Sums the latest count + all deliveries received since
+-- ============================================================
+
+create or replace view current_stock as
+with latest_count as (
+  select distinct on (item_type_id, lab)
+    item_type_id,
+    lab,
+    quantity  as count_qty,
+    counted_at
+  from stock_counts
+  order by item_type_id, lab, counted_at desc
+),
+deliveries_since as (
+  select
+    d.item_type_id,
+    d.lab,
+    coalesce(sum(d.quantity), 0) as delivered_qty
+  from deliveries d
+  join latest_count lc
+    on lc.item_type_id = d.item_type_id
+    and lc.lab = d.lab
+    and d.received_at > lc.counted_at
+  group by d.item_type_id, d.lab
+)
+select
+  it.id                                         as item_type_id,
+  it.name,
+  it.category,
+  it.unit,
+  it.min_threshold,
+  lc.lab,
+  lc.count_qty + coalesce(ds.delivered_qty, 0) as quantity,
+  lc.counted_at                                 as last_counted_at
+from item_types it
+join latest_count lc on lc.item_type_id = it.id
+left join deliveries_since ds
+  on ds.item_type_id = lc.item_type_id
+  and ds.lab = lc.lab;
+
+-- ============================================================
+-- RLS Policies
+-- ============================================================
+
+alter table profiles            enable row level security;
+alter table equipment           enable row level security;
+alter table maintenance_schedules enable row level security;
+alter table maintenance_logs    enable row level security;
+alter table item_types          enable row level security;
+alter table item_sources        enable row level security;
+alter table stock_counts        enable row level security;
+alter table deliveries           enable row level security;
+
+-- All authenticated users can read everything
+create policy "authenticated read"  on profiles            for select using (auth.role() = 'authenticated');
+create policy "authenticated read"  on equipment           for select using (auth.role() = 'authenticated');
+create policy "authenticated read"  on maintenance_schedules for select using (auth.role() = 'authenticated');
+create policy "authenticated read"  on maintenance_logs    for select using (auth.role() = 'authenticated');
+create policy "authenticated read"  on item_types          for select using (auth.role() = 'authenticated');
+create policy "authenticated read"  on item_sources        for select using (auth.role() = 'authenticated');
+create policy "authenticated read"  on stock_counts        for select using (auth.role() = 'authenticated');
+create policy "authenticated read"  on deliveries           for select using (auth.role() = 'authenticated');
+
+-- Manager can do everything; tech can insert logs/counts/deliveries
+create policy "manager write equipment" on equipment
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+  );
+
+create policy "manager write schedules" on maintenance_schedules
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+  );
+
+create policy "manager+tech write logs" on maintenance_logs
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role in ('manager', 'tech'))
+  );
+
+create policy "manager write item_types" on item_types
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+  );
+
+create policy "manager write item_sources" on item_sources
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+  );
+
+create policy "manager+tech write stock_counts" on stock_counts
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role in ('manager', 'tech'))
+  );
+
+create policy "manager+tech write deliveries" on deliveries
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role in ('manager', 'tech'))
+  );
+
+-- ============================================================
+-- Storage bucket for equipment photos
+-- ============================================================
+
+insert into storage.buckets (id, name, public) values ('equipment-photos', 'equipment-photos', false);
+
+create policy "authenticated upload photos" on storage.objects
+  for insert with check (bucket_id = 'equipment-photos' and auth.role() = 'authenticated');
+
+create policy "authenticated read photos" on storage.objects
+  for select using (bucket_id = 'equipment-photos' and auth.role() = 'authenticated');
