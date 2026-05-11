@@ -75,6 +75,34 @@ export function useItemTypes() {
   })
 }
 
+export function useDistinctCategories() {
+  return useQuery({
+    queryKey: ['item_types', 'categories'],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('item_types')
+        .select('category')
+        .order('category')
+      if (error) throw error
+      return [...new Set((data ?? []).map((r: { category: string }) => r.category))].filter(Boolean)
+    },
+  })
+}
+
+export function useDistinctUnits() {
+  return useQuery({
+    queryKey: ['item_types', 'units'],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('item_types')
+        .select('unit')
+        .order('unit')
+      if (error) throw error
+      return [...new Set((data ?? []).map((r: { unit: string }) => r.unit))].filter(Boolean)
+    },
+  })
+}
+
 export function useItemSources(itemTypeId?: string) {
   return useQuery({
     queryKey: ['item_sources', itemTypeId ?? 'all'],

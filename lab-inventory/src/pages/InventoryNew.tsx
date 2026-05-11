@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SelectOrNew } from '@/components/ui/SelectOrNew'
 import { SourceEditor, type SourceDraft } from '@/components/inventory/SourceEditor'
 import { useCreateItemType, useCreateItemSource } from '@/lib/mutations'
+import { useDistinctCategories, useDistinctUnits } from '@/lib/queries'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +17,9 @@ export function InventoryNew() {
   const navigate = useNavigate()
   const createItem = useCreateItemType()
   const createSource = useCreateItemSource()
+
+  const { data: categories = [] } = useDistinctCategories()
+  const { data: units = [] } = useDistinctUnits()
 
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
@@ -72,21 +77,48 @@ export function InventoryNew() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
+            <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="name">Name *</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 2µL cryotubes" required />
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. 2µL cryotubes"
+                required
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="category">Category *</Label>
-              <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. consumables, reagents, PPE" required />
+              <SelectOrNew
+                id="category"
+                value={category}
+                onChange={setCategory}
+                options={categories}
+                placeholder="Select or add category…"
+                newPlaceholder="e.g. Reagents, PPE, Consumables…"
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="unit">Unit *</Label>
-              <Input id="unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="e.g. boxes, mL, units" required />
+              <SelectOrNew
+                id="unit"
+                value={unit}
+                onChange={setUnit}
+                options={units}
+                placeholder="Select or add unit…"
+                newPlaceholder="e.g. boxes, mL, units…"
+              />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="min">Minimum stock threshold</Label>
-              <Input id="min" type="number" min={0} step="0.01" value={minThreshold} onChange={(e) => setMinThreshold(e.target.value)} />
+              <Input
+                id="min"
+                type="number"
+                min={0}
+                step="0.01"
+                value={minThreshold}
+                onChange={(e) => setMinThreshold(e.target.value)}
+              />
               <p className="text-xs text-muted-foreground">Email alert fires when total stock drops below this.</p>
             </div>
           </div>
@@ -107,7 +139,12 @@ export function InventoryNew() {
           <CardTitle className="text-base">Notes</CardTitle>
         </CardHeader>
         <CardContent>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Any additional details..." />
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Any additional details..."
+          />
         </CardContent>
       </Card>
 
