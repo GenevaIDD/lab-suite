@@ -178,6 +178,7 @@ create index dv_received_at_idx on deliveries(received_at desc);
 
 create or replace view current_stock as
 with latest_count as (
+  -- Most recent physical count per item (may not exist for new items)
   select distinct on (item_type_id)
     item_type_id,
     quantity   as count_qty,
@@ -186,26 +187,27 @@ with latest_count as (
   order by item_type_id, counted_at desc
 ),
 deliveries_since as (
+  -- Deliveries received after the latest count, OR all deliveries if no count exists
   select
     d.item_type_id,
     coalesce(sum(d.quantity), 0) as delivered_qty
   from deliveries d
-  join latest_count lc
-    on lc.item_type_id = d.item_type_id
-    and d.received_at > lc.counted_at
+  left join latest_count lc on lc.item_type_id = d.item_type_id
+  where lc.counted_at is null            -- no count yet → include all deliveries
+     or d.received_at > lc.counted_at   -- count exists → only deliveries after it
   group by d.item_type_id
 )
 select
-  it.id                                         as item_type_id,
+  it.id                                                        as item_type_id,
   it.name,
   it.category,
   it.unit,
   it.min_threshold,
-  lc.count_qty + coalesce(ds.delivered_qty, 0) as quantity,
-  lc.counted_at                                 as last_counted_at
+  coalesce(lc.count_qty, 0) + coalesce(ds.delivered_qty, 0)  as quantity,
+  lc.counted_at                                                as last_counted_at
 from item_types it
-join latest_count lc on lc.item_type_id = it.id
-left join deliveries_since ds on ds.item_type_id = lc.item_type_id;
+left join latest_count lc    on lc.item_type_id = it.id
+left join deliveries_since ds on ds.item_type_id = it.id;
 
 -- ============================================================
 -- RLS Policies
@@ -272,7 +274,23 @@ create policy "admin+lab_manager+tech write deliveries" on deliveries
 -- Storage bucket for equipment photos
 -- ============================================================
 
-insert into storage.buckets (id, name, public) values ('equipment-photos', 'equipment-photos', false);
+insert into storage.buckets (id, name, public) values ('equipment-photos', 'equipment-photos', false)
+  on conflict (id) do nothing;
+
+-- ============================================================
+-- Table grants (required alongside RLS policies)
+-- ============================================================
+
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant select on all tables in schema public to anon;
+
+-- ============================================================
+-- Storage bucket for equipment photos (continued)
+-- ============================================================
+
+drop policy if exists "authenticated upload photos" on storage.objects;
+drop policy if exists "authenticated read photos" on storage.objects;
 
 create policy "authenticated upload photos" on storage.objects
   for insert with check (bucket_id = 'equipment-photos' and auth.role() = 'authenticated');

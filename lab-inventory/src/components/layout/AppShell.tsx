@@ -11,7 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/inventory': 'Inventory',
   '/inventory/new': 'New Item',
   '/inventory/delivery/new': 'New Delivery',
-  '/inventory/stock-count': 'Stock Count',
+  '/inventory/stock-count': 'Log Stock Count',
   '/users': 'Users',
 }
 

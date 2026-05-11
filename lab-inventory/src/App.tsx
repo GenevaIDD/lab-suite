@@ -11,7 +11,7 @@ import { Inventory } from '@/pages/Inventory'
 import { InventoryNew } from '@/pages/InventoryNew'
 import { DeliveryNew } from '@/pages/DeliveryNew'
 import { Users } from '@/pages/Users'
-import { ComingSoon } from '@/pages/ComingSoon'
+import { StockCountNew } from '@/pages/StockCountNew'
 import { Loader2 } from 'lucide-react'
 
 const queryClient = new QueryClient({
@@ -73,10 +73,7 @@ export default function App() {
               <Route path="inventory" element={<Inventory />} />
               <Route path="inventory/new" element={<InventoryNew />} />
               <Route path="inventory/delivery/new" element={<DeliveryNew />} />
-              <Route
-                path="inventory/stock-count"
-                element={<ComingSoon title="Log Stock Count" backTo="/inventory" backLabel="Back to Inventory" />}
-              />
+              <Route path="inventory/stock-count" element={<StockCountNew />} />
               <Route path="users" element={<Users />} />
             </Route>
           </Routes>
