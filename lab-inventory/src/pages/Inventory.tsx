@@ -17,9 +17,6 @@ import {
 import { Plus, Search, Package, Loader2 } from 'lucide-react'
 import { useItemTypes, useDeliveries, useCurrentStock } from '@/lib/queries'
 import { cn } from '@/lib/utils'
-import type { Lab } from '@/types/database'
-
-const LAB_LABEL: Record<string, string> = { lab_1: 'Lab 1', lab_2: 'Lab 2' }
 
 interface StockRow {
   item_type_id: string
@@ -27,7 +24,6 @@ interface StockRow {
   category: string
   unit: string
   min_threshold: number
-  lab: Lab
   quantity: number
   last_counted_at: string
 }
@@ -42,19 +38,15 @@ export function Inventory() {
 
   const itemRows = useMemo(() => {
     const q = search.toLowerCase()
-    const byItem = new Map<string, { lab1: number; lab2: number }>()
+    const byItem = new Map<string, number>()
     for (const row of stockRows) {
-      const cur = byItem.get(row.item_type_id) ?? { lab1: 0, lab2: 0 }
-      if (row.lab === 'lab_1') cur.lab1 = Number(row.quantity)
-      if (row.lab === 'lab_2') cur.lab2 = Number(row.quantity)
-      byItem.set(row.item_type_id, cur)
+      byItem.set(row.item_type_id, Number(row.quantity))
     }
     return itemTypes
       .filter((i) => !q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q))
       .map((i) => {
-        const stock = byItem.get(i.id) ?? { lab1: 0, lab2: 0 }
-        const total = stock.lab1 + stock.lab2
-        return { ...i, lab1: stock.lab1, lab2: stock.lab2, total, low: total < i.min_threshold }
+        const quantity = byItem.get(i.id) ?? 0
+        return { ...i, quantity, low: quantity < i.min_threshold }
       })
   }, [itemTypes, stockRows, search])
 
@@ -108,9 +100,7 @@ export function Inventory() {
                     <TableHead>Item</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Lab 1</TableHead>
-                    <TableHead className="text-right">Lab 2</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
                     <TableHead className="text-right">Min</TableHead>
                     <TableHead>Status</TableHead>
                   </>
@@ -119,7 +109,6 @@ export function Inventory() {
                     <TableHead>Date</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead>Manufacturer</TableHead>
-                    <TableHead>Lab</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead>Lot #</TableHead>
                     <TableHead>Expiry</TableHead>
@@ -130,20 +119,18 @@ export function Inventory() {
             <TableBody>
               {tab === 'items' ? (
                 loadingItems ? (
-                  <TableRow><TableCell colSpan={8} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
                 ) : itemsError ? (
-                  <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">Cannot load — check Supabase configuration.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">Cannot load — check Supabase configuration.</TableCell></TableRow>
                 ) : itemRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={8}><EmptyState search={search} target="items" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6}><EmptyState search={search} target="items" /></TableCell></TableRow>
                 ) : (
                   itemRows.map((i) => (
                     <TableRow key={i.id}>
                       <TableCell className="font-medium">{i.name}</TableCell>
                       <TableCell className="text-muted-foreground">{i.category}</TableCell>
                       <TableCell className="text-muted-foreground">{i.unit}</TableCell>
-                      <TableCell className="text-right tabular-nums">{i.lab1}</TableCell>
-                      <TableCell className="text-right tabular-nums">{i.lab2}</TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">{i.total}</TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">{i.quantity}</TableCell>
                       <TableCell className="text-right text-muted-foreground tabular-nums">{i.min_threshold}</TableCell>
                       <TableCell>
                         {i.low ? (
@@ -156,16 +143,15 @@ export function Inventory() {
                   ))
                 )
               ) : loadingDeliveries ? (
-                <TableRow><TableCell colSpan={7} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
               ) : deliveryRows.length === 0 ? (
-                <TableRow><TableCell colSpan={7}><EmptyState search={search} target="deliveries" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6}><EmptyState search={search} target="deliveries" /></TableCell></TableRow>
               ) : (
                 deliveryRows.map((d) => (
                   <TableRow key={d.id}>
                     <TableCell className="text-muted-foreground">{format(parseISO(d.received_at), 'd MMM yyyy')}</TableCell>
                     <TableCell className="font-medium">{d.item_type?.name ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{d.item_source?.manufacturer ?? '—'}</TableCell>
-                    <TableCell>{LAB_LABEL[d.lab]}</TableCell>
                     <TableCell className="text-right tabular-nums">{d.quantity}</TableCell>
                     <TableCell className="text-muted-foreground">{d.lot_number ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{d.expiry_date ? format(parseISO(d.expiry_date), 'd MMM yyyy') : '—'}</TableCell>

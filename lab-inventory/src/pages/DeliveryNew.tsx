@@ -26,7 +26,6 @@ import { useItemTypes, useItemSources } from '@/lib/queries'
 import { useCreateDelivery, useCreateItemSource } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { Lab } from '@/types/database'
 
 export function DeliveryNew() {
   const navigate = useNavigate()
@@ -35,7 +34,6 @@ export function DeliveryNew() {
 
   const [itemTypeId, setItemTypeId] = useState('')
   const [itemSourceId, setItemSourceId] = useState('')
-  const [lab, setLab] = useState<Lab>('lab_1')
   const [quantity, setQuantity] = useState('')
   const [lotNumber, setLotNumber] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
@@ -55,7 +53,6 @@ export function DeliveryNew() {
       await createDelivery.mutateAsync({
         item_type_id: itemTypeId,
         item_source_id: itemSourceId || null,
-        lab,
         quantity: Number(quantity),
         lot_number: lotNumber || null,
         expiry_date: expiryDate || null,
@@ -138,18 +135,6 @@ export function DeliveryNew() {
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="lab">Receiving lab *</Label>
-              <Select value={lab} onValueChange={(v) => setLab((v ?? 'lab_1') as Lab)}>
-                <SelectTrigger id="lab">
-                  <SelectValue>{(v: string | null) => (v === 'lab_2' ? 'Lab 2' : 'Lab 1')}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lab_1">Lab 1</SelectItem>
-                  <SelectItem value="lab_2">Lab 2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-1">
               <Label htmlFor="qty">Quantity * {selectedItem && <span className="text-muted-foreground font-normal">({selectedItem.unit})</span>}</Label>
               <Input id="qty" type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />

@@ -17,7 +17,7 @@ import { PhotoUpload } from '@/components/equipment/PhotoUpload'
 import { MaintenanceScheduleEditor, type ScheduleDraft } from '@/components/equipment/MaintenanceScheduleEditor'
 import { useCreateEquipment, useCreateMaintenanceSchedule } from '@/lib/mutations'
 import { toast } from 'sonner'
-import type { Lab, Currency } from '@/types/database'
+import type { Currency } from '@/types/database'
 import { CURRENCIES } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -25,7 +25,6 @@ interface FormState {
   name: string
   category: string
   serial_number: string
-  lab: Lab
   supplier: string
   vendor_contact: string
   purchase_date: string
@@ -40,7 +39,6 @@ const initialForm: FormState = {
   name: '',
   category: '',
   serial_number: '',
-  lab: 'lab_1',
   supplier: '',
   vendor_contact: '',
   purchase_date: '',
@@ -75,7 +73,6 @@ export function EquipmentNew() {
         name: form.name,
         category: form.category,
         serial_number: form.serial_number || null,
-        lab: form.lab,
         supplier: form.supplier || null,
         vendor_contact: form.vendor_contact || null,
         purchase_date: form.purchase_date || null,
@@ -125,18 +122,6 @@ export function EquipmentNew() {
             <Field id="name" label="Name *" value={form.name} onChange={(v) => update('name', v)} placeholder="e.g. Eppendorf Centrifuge 5810" required />
             <Field id="category" label="Category *" value={form.category} onChange={(v) => update('category', v)} placeholder="e.g. Centrifuge" required />
             <Field id="serial" label="Serial number" value={form.serial_number} onChange={(v) => update('serial_number', v)} />
-            <div className="space-y-1">
-              <Label htmlFor="lab">Lab *</Label>
-              <Select value={form.lab} onValueChange={(v) => update('lab', v as Lab)}>
-                <SelectTrigger id="lab">
-                  <SelectValue>{(v: string | null) => (v === 'lab_2' ? 'Lab 2' : 'Lab 1')}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lab_1">Lab 1</SelectItem>
-                  <SelectItem value="lab_2">Lab 2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </CardContent>
       </Card>

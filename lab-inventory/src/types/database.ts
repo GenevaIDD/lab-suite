@@ -1,4 +1,3 @@
-export type Lab = 'lab_1' | 'lab_2'
 export type UserRole = 'manager' | 'supervisor' | 'tech'
 export type MaintenanceStatus = 'scheduled' | 'overdue' | 'completed'
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'CHF' | 'BIF' | 'CDF'
@@ -25,7 +24,6 @@ export interface Equipment {
   name: string
   category: string
   serial_number: string | null
-  lab: Lab
   supplier: string | null
   vendor_contact: string | null
   purchase_date: string | null
@@ -86,7 +84,6 @@ export interface ItemSource {
 export interface StockCount {
   id: string
   item_type_id: string
-  lab: Lab
   quantity: number
   counted_at: string
   counted_by: string | null
@@ -99,7 +96,6 @@ export interface Delivery {
   id: string
   item_type_id: string
   item_source_id: string | null
-  lab: Lab
   quantity: number
   lot_number: string | null
   expiry_date: string | null

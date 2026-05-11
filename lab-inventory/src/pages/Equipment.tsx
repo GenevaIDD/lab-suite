@@ -18,8 +18,6 @@ import { useEquipmentList, useMaintenanceSchedules } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
 
-const LAB_LABEL: Record<string, string> = { lab_1: 'Lab 1', lab_2: 'Lab 2' }
-
 export function Equipment() {
   const [search, setSearch] = useState('')
   const { data: equipment = [], isLoading, error } = useEquipmentList()
@@ -67,7 +65,6 @@ export function Equipment() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead>Lab</TableHead>
                 <TableHead>Next Maintenance</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -75,19 +72,19 @@ export function Equipment() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin inline" />
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
                     Cannot load equipment — check Supabase configuration.
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5}>
+                  <TableCell colSpan={4}>
                     <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                       <Wrench className="h-8 w-8 opacity-30" />
                       <p className="text-sm">
@@ -115,7 +112,6 @@ export function Equipment() {
                         </Link>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{e.category}</TableCell>
-                      <TableCell>{LAB_LABEL[e.lab]}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {next ? `${next.s.label} · ${format(parseISO(next.s.next_due), 'd MMM yyyy')}` : '—'}
                       </TableCell>

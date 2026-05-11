@@ -10,7 +10,6 @@ create extension if not exists "uuid-ossp";
 -- Enums
 -- ============================================================
 
-create type lab_location as enum ('lab_1', 'lab_2');
 create type user_role as enum ('manager', 'supervisor', 'tech');
 create type currency_code as enum ('USD', 'EUR', 'GBP', 'CHF', 'BIF', 'CDF');
 
@@ -49,7 +48,6 @@ create table equipment (
   name            text not null,
   category        text not null,
   serial_number   text,
-  lab             lab_location not null,
   supplier        text,
   vendor_contact  text,
   purchase_date   date,
@@ -61,8 +59,6 @@ create table equipment (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
-
-create index equipment_lab_idx on equipment(lab);
 
 -- ============================================================
 -- Maintenance Schedules
@@ -144,7 +140,6 @@ create index is_item_type_idx on item_sources(item_type_id);
 create table stock_counts (
   id            uuid primary key default uuid_generate_v4(),
   item_type_id  uuid not null references item_types(id) on delete cascade,
-  lab           lab_location not null,
   quantity      numeric(10, 2) not null,
   counted_at    timestamptz not null default now(),
   counted_by    text,
@@ -164,7 +159,6 @@ create table deliveries (
   id              uuid primary key default uuid_generate_v4(),
   item_type_id    uuid not null references item_types(id) on delete cascade,
   item_source_id  uuid references item_sources(id) on delete set null,
-  lab             lab_location not null,
   quantity        numeric(10, 2) not null,
   lot_number      text,
   expiry_date     date,
@@ -178,31 +172,28 @@ create index dv_item_type_idx on deliveries(item_type_id);
 create index dv_received_at_idx on deliveries(received_at desc);
 
 -- ============================================================
--- View: current stock per item type per lab
+-- View: current stock per item type
 -- Sums the latest count + all deliveries received since
 -- ============================================================
 
 create or replace view current_stock as
 with latest_count as (
-  select distinct on (item_type_id, lab)
+  select distinct on (item_type_id)
     item_type_id,
-    lab,
-    quantity  as count_qty,
+    quantity   as count_qty,
     counted_at
   from stock_counts
-  order by item_type_id, lab, counted_at desc
+  order by item_type_id, counted_at desc
 ),
 deliveries_since as (
   select
     d.item_type_id,
-    d.lab,
     coalesce(sum(d.quantity), 0) as delivered_qty
   from deliveries d
   join latest_count lc
     on lc.item_type_id = d.item_type_id
-    and lc.lab = d.lab
     and d.received_at > lc.counted_at
-  group by d.item_type_id, d.lab
+  group by d.item_type_id
 )
 select
   it.id                                         as item_type_id,
@@ -210,14 +201,11 @@ select
   it.category,
   it.unit,
   it.min_threshold,
-  lc.lab,
   lc.count_qty + coalesce(ds.delivered_qty, 0) as quantity,
   lc.counted_at                                 as last_counted_at
 from item_types it
 join latest_count lc on lc.item_type_id = it.id
-left join deliveries_since ds
-  on ds.item_type_id = lc.item_type_id
-  and ds.lab = lc.lab;
+left join deliveries_since ds on ds.item_type_id = lc.item_type_id;
 
 -- ============================================================
 -- RLS Policies

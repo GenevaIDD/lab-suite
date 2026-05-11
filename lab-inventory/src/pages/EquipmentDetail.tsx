@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, MapPin, Package, Banknote, Loader2 } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2 } from 'lucide-react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,8 +21,6 @@ import { useLogMaintenance } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
-
-const LAB_LABEL: Record<string, string> = { lab_1: 'Lab 1', lab_2: 'Lab 2' }
 
 export function EquipmentDetail() {
   const { id } = useParams()
@@ -60,15 +58,9 @@ export function EquipmentDetail() {
           <h2 className="text-2xl font-semibold">{equipment.name}</h2>
           <p className="text-sm text-muted-foreground mt-1">{equipment.category}</p>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="gap-1">
-            <MapPin className="h-3 w-3" />
-            {LAB_LABEL[equipment.lab]}
-          </Badge>
-          {equipment.serial_number && (
-            <Badge variant="secondary" className="gap-1">SN: {equipment.serial_number}</Badge>
-          )}
-        </div>
+        {equipment.serial_number && (
+          <Badge variant="secondary" className="gap-1">SN: {equipment.serial_number}</Badge>
+        )}
       </div>
 
       {equipment.photo_urls.length > 0 && (
