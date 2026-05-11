@@ -10,7 +10,7 @@ create extension if not exists "uuid-ossp";
 -- Enums
 -- ============================================================
 
-create type user_role as enum ('manager', 'supervisor', 'tech');
+create type user_role as enum ('admin', 'lab_manager', 'supervisor', 'tech');
 create type currency_code as enum ('USD', 'EUR', 'GBP', 'CHF', 'BIF', 'CDF');
 
 -- ============================================================
@@ -230,40 +230,42 @@ create policy "authenticated read"  on item_sources        for select using (aut
 create policy "authenticated read"  on stock_counts        for select using (auth.role() = 'authenticated');
 create policy "authenticated read"  on deliveries           for select using (auth.role() = 'authenticated');
 
--- Manager can do everything; tech can insert logs/counts/deliveries
-create policy "manager write equipment" on equipment
+-- admin + lab_manager: full data CRUD. tech: inserts only for logs/counts/deliveries.
+-- admin additionally controls user management (enforced in UI, not RLS).
+
+create policy "admin+lab_manager write equipment" on equipment
   for all using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
   );
 
-create policy "manager write schedules" on maintenance_schedules
+create policy "admin+lab_manager write schedules" on maintenance_schedules
   for all using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
   );
 
-create policy "manager+tech write logs" on maintenance_logs
+create policy "admin+lab_manager+tech write logs" on maintenance_logs
   for insert with check (
-    exists (select 1 from profiles where id = auth.uid() and role in ('manager', 'tech'))
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
 
-create policy "manager write item_types" on item_types
+create policy "admin+lab_manager write item_types" on item_types
   for all using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
   );
 
-create policy "manager write item_sources" on item_sources
+create policy "admin+lab_manager write item_sources" on item_sources
   for all using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
   );
 
-create policy "manager+tech write stock_counts" on stock_counts
+create policy "admin+lab_manager+tech write stock_counts" on stock_counts
   for insert with check (
-    exists (select 1 from profiles where id = auth.uid() and role in ('manager', 'tech'))
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
 
-create policy "manager+tech write deliveries" on deliveries
+create policy "admin+lab_manager+tech write deliveries" on deliveries
   for insert with check (
-    exists (select 1 from profiles where id = auth.uid() and role in ('manager', 'tech'))
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
 
 -- ============================================================
