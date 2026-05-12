@@ -323,6 +323,16 @@ export function SessionEntry() {
         </div>
       )}
 
+      {/* Add missing item */}
+      <div className="text-center">
+        <Link
+          to="/inventory/new"
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+        >
+          Item not in list? Add it →
+        </Link>
+      </div>
+
       {/* Bottom actions */}
       <div className="flex gap-2 pt-2 border-t">
         <Button

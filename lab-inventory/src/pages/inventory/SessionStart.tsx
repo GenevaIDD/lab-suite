@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useItemTypes } from '@/lib/queries'
+import { useItemTypes, useActiveSession } from '@/lib/queries'
 import { useStartSession } from '@/lib/mutations'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
@@ -18,12 +18,18 @@ export function SessionStart() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { data: itemTypes = [], isLoading } = useItemTypes()
+  const { data: activeSession } = useActiveSession()
   const startSession = useStartSession()
 
   const [targetDate, setTargetDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [notes, setNotes] = useState('')
 
   async function handleStart() {
+    if (activeSession) {
+      toast.error('A session is already in progress. Resume or complete it before starting a new one.')
+      navigate(`/inventory/session/${activeSession.id}`)
+      return
+    }
     if (itemTypes.length === 0) {
       toast.error('No items registered — add inventory items first.')
       return

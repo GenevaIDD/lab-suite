@@ -148,9 +148,26 @@ export function useStartSession() {
         .single()
       if (sessionError) throw sessionError
 
-      const sorted = [...itemTypes].sort((a, b) =>
-        a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
-      )
+      // Fixed category order matching the lab's physical organisation
+      const CATEGORY_ORDER = [
+        'surveillance clinique',
+        'milieux et chimique',
+        'culture',
+        'consomables',
+        'articles',
+        'eep',
+        'transport',
+        'accessoires de machines',
+        'autres articles',
+      ]
+      const catIdx = (c: string) => {
+        const i = CATEGORY_ORDER.indexOf(c.toLowerCase())
+        return i === -1 ? 999 : i
+      }
+      const sorted = [...itemTypes].sort((a, b) => {
+        const catDiff = catIdx(a.category) - catIdx(b.category)
+        return catDiff !== 0 ? catDiff : a.name.localeCompare(b.name)
+      })
       const entries = sorted.map((item, idx) => ({
         session_id: session.id,
         item_type_id: item.id,
