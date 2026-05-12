@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { enqueue } from './offline-queue'
-import type { Equipment, MaintenanceSchedule, ItemType, ItemSource, Delivery, StockCount } from '@/types/database'
+import type { Equipment, MaintenanceSchedule, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry } from '@/types/database'
 
 type Insert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>
 
@@ -118,6 +118,155 @@ export function useCreateStockCount() {
     mutationFn: (payload: Omit<StockCount, 'id' | 'created_at'>) =>
       tryWriteOrQueue<StockCount>('insert', 'stock_counts', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['current_stock'] }),
+  })
+}
+
+// ============================================================
+// Inventory Sessions
+// ============================================================
+
+// Helper: typed as never to bypass Supabase generic inference for new tables
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any
+
+export function useStartSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      targetDate,
+      startedBy,
+      itemTypes,
+    }: {
+      targetDate: string
+      startedBy: string | null
+      itemTypes: Array<{ id: string; name: string; category: string }>
+    }): Promise<InventorySession> => {
+      const { data: session, error: sessionError } = await db
+        .from('inventory_sessions')
+        .insert({ target_date: targetDate, started_by: startedBy, status: 'in_progress' })
+        .select()
+        .single()
+      if (sessionError) throw sessionError
+
+      const sorted = [...itemTypes].sort((a, b) =>
+        a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
+      )
+      const entries = sorted.map((item, idx) => ({
+        session_id: session.id,
+        item_type_id: item.id,
+        sort_order: idx,
+      }))
+      const { error: entriesError } = await db
+        .from('inventory_session_entries')
+        .insert(entries)
+      if (entriesError) throw entriesError
+
+      return session as InventorySession
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory_sessions'] }),
+  })
+}
+
+export function useUpdateEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      countedQuantity,
+      enteredBy,
+      notes,
+    }: {
+      id: string
+      sessionId: string
+      countedQuantity: number | null
+      enteredBy: string | null
+      notes: string | null
+    }): Promise<InventorySessionEntry> => {
+      const { data, error } = await db
+        .from('inventory_session_entries')
+        .update({
+          counted_quantity: countedQuantity,
+          entered_at: new Date().toISOString(),
+          entered_by: enteredBy,
+          notes,
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as InventorySessionEntry
+    },
+    onSuccess: (_data: unknown, vars: { id: string; sessionId: string; countedQuantity: number | null; enteredBy: string | null; notes: string | null }) => {
+      qc.invalidateQueries({ queryKey: ['inventory_session_entries', vars.sessionId] })
+    },
+  })
+}
+
+export function usePauseSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { error } = await db
+        .from('inventory_sessions')
+        .update({ status: 'paused', paused_at: new Date().toISOString() })
+        .eq('id', sessionId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory_sessions'] }),
+  })
+}
+
+export function useResumeSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ sessionId, newDate }: { sessionId: string; newDate: string }) => {
+      const { error } = await db
+        .from('inventory_sessions')
+        .update({ status: 'in_progress', paused_at: null, target_date: newDate })
+        .eq('id', sessionId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory_sessions'] }),
+  })
+}
+
+export function useCompleteSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      sessionId,
+      targetDate,
+      entries,
+    }: {
+      sessionId: string
+      targetDate: string
+      entries: Array<{ item_type_id: string; counted_quantity: number | null; entered_by: string | null; notes: string | null }>
+    }) => {
+      const counts = entries
+        .filter((e) => e.counted_quantity !== null)
+        .map((e) => ({
+          item_type_id: e.item_type_id,
+          quantity: e.counted_quantity!,
+          counted_at: new Date(targetDate).toISOString(),
+          counted_by: e.entered_by,
+          notes: e.notes,
+        }))
+
+      if (counts.length > 0) {
+        const { error: countError } = await supabase.from('stock_counts').insert(counts as never)
+        if (countError) throw countError
+      }
+
+      const { error } = await db
+        .from('inventory_sessions')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', sessionId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inventory_sessions'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+    },
   })
 }
 

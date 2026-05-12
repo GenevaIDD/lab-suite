@@ -12,6 +12,10 @@ import { InventoryNew } from '@/pages/InventoryNew'
 import { DeliveryNew } from '@/pages/DeliveryNew'
 import { Users } from '@/pages/Users'
 import { StockCountNew } from '@/pages/StockCountNew'
+import { SessionStart } from '@/pages/inventory/SessionStart'
+import { SessionEntry } from '@/pages/inventory/SessionEntry'
+import { SessionPrint } from '@/pages/inventory/SessionPrint'
+import { SessionSummary } from '@/pages/inventory/SessionSummary'
 import { Loader2 } from 'lucide-react'
 
 const queryClient = new QueryClient({
@@ -59,6 +63,7 @@ export default function App() {
         <AuthGate>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/inventory/session/:id/print" element={<SessionPrint />} />
             <Route
               element={
                 <RequireAuth>
@@ -74,6 +79,9 @@ export default function App() {
               <Route path="inventory/new" element={<InventoryNew />} />
               <Route path="inventory/delivery/new" element={<DeliveryNew />} />
               <Route path="inventory/stock-count" element={<StockCountNew />} />
+              <Route path="inventory/session/new" element={<SessionStart />} />
+              <Route path="inventory/session/:id" element={<SessionEntry />} />
+              <Route path="inventory/session/:id/summary" element={<SessionSummary />} />
               <Route path="users" element={<Users />} />
             </Route>
           </Routes>

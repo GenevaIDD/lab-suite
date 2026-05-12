@@ -172,6 +172,41 @@ create index dv_item_type_idx on deliveries(item_type_id);
 create index dv_received_at_idx on deliveries(received_at desc);
 
 -- ============================================================
+-- Inventory Sessions
+-- A guided multi-item count session (monthly inventory walk)
+-- ============================================================
+
+create type session_status as enum ('in_progress', 'paused', 'completed', 'cancelled');
+
+create table inventory_sessions (
+  id            uuid primary key default uuid_generate_v4(),
+  target_date   date not null,
+  status        session_status not null default 'in_progress',
+  started_by    text,
+  paused_at     timestamptz,
+  completed_at  timestamptz,
+  notes         text,
+  created_at    timestamptz not null default now()
+);
+
+create index is_status_idx on inventory_sessions(status);
+
+create table inventory_session_entries (
+  id               uuid primary key default uuid_generate_v4(),
+  session_id       uuid not null references inventory_sessions(id) on delete cascade,
+  item_type_id     uuid not null references item_types(id) on delete cascade,
+  sort_order       int not null,
+  counted_quantity numeric(10, 2),   -- null until entered
+  entered_at       timestamptz,
+  entered_by       text,
+  notes            text,
+  created_at       timestamptz not null default now()
+);
+
+create index ise_session_idx on inventory_session_entries(session_id);
+create index ise_sort_idx    on inventory_session_entries(session_id, sort_order);
+
+-- ============================================================
 -- View: current stock per item type
 -- Sums the latest count + all deliveries received since
 -- ============================================================
@@ -219,8 +254,10 @@ alter table maintenance_schedules enable row level security;
 alter table maintenance_logs    enable row level security;
 alter table item_types          enable row level security;
 alter table item_sources        enable row level security;
-alter table stock_counts        enable row level security;
-alter table deliveries           enable row level security;
+alter table stock_counts           enable row level security;
+alter table deliveries             enable row level security;
+alter table inventory_sessions     enable row level security;
+alter table inventory_session_entries enable row level security;
 
 -- All authenticated users can read everything
 create policy "authenticated read"  on profiles            for select using (auth.role() = 'authenticated');
@@ -267,6 +304,18 @@ create policy "admin+lab_manager+tech write stock_counts" on stock_counts
 
 create policy "admin+lab_manager+tech write deliveries" on deliveries
   for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
+  );
+
+-- Inventory sessions: all authenticated can read; admin+lab_manager+tech can create/update
+create policy "authenticated read sessions"   on inventory_sessions for select using (auth.role() = 'authenticated');
+create policy "authenticated read entries"    on inventory_session_entries for select using (auth.role() = 'authenticated');
+create policy "admin+lab_manager+tech write sessions" on inventory_sessions
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
+  );
+create policy "admin+lab_manager+tech write entries" on inventory_session_entries
+  for all using (
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
 

@@ -107,6 +107,32 @@ export interface Delivery {
   item_source?: ItemSource
 }
 
+export type SessionStatus = 'in_progress' | 'paused' | 'completed' | 'cancelled'
+
+export interface InventorySession {
+  id: string
+  target_date: string
+  status: SessionStatus
+  started_by: string | null
+  paused_at: string | null
+  completed_at: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface InventorySessionEntry {
+  id: string
+  session_id: string
+  item_type_id: string
+  sort_order: number
+  counted_quantity: number | null
+  entered_at: string | null
+  entered_by: string | null
+  notes: string | null
+  created_at: string
+  item_type?: ItemType
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -118,6 +144,8 @@ export type Database = {
       item_sources: { Row: ItemSource; Insert: Omit<ItemSource, 'id' | 'created_at'>; Update: Partial<ItemSource> }
       stock_counts: { Row: StockCount; Insert: Omit<StockCount, 'id' | 'created_at'>; Update: Partial<StockCount> }
       deliveries: { Row: Delivery; Insert: Omit<Delivery, 'id' | 'created_at'>; Update: Partial<Delivery> }
+      inventory_sessions: { Row: InventorySession; Insert: Omit<InventorySession, 'id' | 'created_at'>; Update: Partial<InventorySession> }
+      inventory_session_entries: { Row: InventorySessionEntry; Insert: Omit<InventorySessionEntry, 'id' | 'created_at'>; Update: Partial<InventorySessionEntry> }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

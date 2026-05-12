@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, InventorySession, InventorySessionEntry } from '@/types/database'
 
 export function useEquipmentList() {
   return useQuery({
@@ -127,6 +127,58 @@ export function useDeliveries() {
         .limit(100)
       if (error) throw error
       return data ?? []
+    },
+  })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any
+
+export function useActiveSession() {
+  return useQuery({
+    queryKey: ['inventory_sessions', 'active'],
+    queryFn: async (): Promise<InventorySession | null> => {
+      const { data, error } = await db
+        .from('inventory_sessions')
+        .select('*')
+        .in('status', ['in_progress', 'paused'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) throw error
+      return data as InventorySession | null
+    },
+  })
+}
+
+export function useSession(id: string | undefined) {
+  return useQuery({
+    queryKey: ['inventory_sessions', id],
+    enabled: !!id,
+    queryFn: async (): Promise<InventorySession | null> => {
+      const { data, error } = await db
+        .from('inventory_sessions')
+        .select('*')
+        .eq('id', id!)
+        .single()
+      if (error) throw error
+      return data as InventorySession
+    },
+  })
+}
+
+export function useSessionEntries(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['inventory_session_entries', sessionId],
+    enabled: !!sessionId,
+    queryFn: async (): Promise<InventorySessionEntry[]> => {
+      const { data, error } = await db
+        .from('inventory_session_entries')
+        .select('*, item_type:item_types(*)')
+        .eq('session_id', sessionId!)
+        .order('sort_order')
+      if (error) throw error
+      return (data ?? []) as InventorySessionEntry[]
     },
   })
 }

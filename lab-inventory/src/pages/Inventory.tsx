@@ -14,8 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Search, Package, Loader2 } from 'lucide-react'
-import { useItemTypes, useDeliveries, useCurrentStock } from '@/lib/queries'
+import { Plus, Search, Package, Loader2, ClipboardList, Play } from 'lucide-react'
+import { useItemTypes, useDeliveries, useCurrentStock, useActiveSession } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
 interface StockRow {
@@ -35,6 +35,7 @@ export function Inventory() {
   const { data: itemTypes = [], isLoading: loadingItems, error: itemsError } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
   const { data: deliveries = [], isLoading: loadingDeliveries } = useDeliveries()
+  const { data: activeSession } = useActiveSession()
 
   const itemRows = useMemo(() => {
     const q = search.toLowerCase()
@@ -59,6 +60,25 @@ export function Inventory() {
 
   return (
     <div className="space-y-4">
+      {/* Resume banner */}
+      {activeSession && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-sm font-medium">
+              {activeSession.status === 'paused' ? 'Inventory session paused' : 'Inventory session in progress'}
+            </span>
+          </div>
+          <Link
+            to={`/inventory/session/${activeSession.id}`}
+            className={cn(buttonVariants({ size: 'sm' }))}
+          >
+            <Play className="h-3.5 w-3.5 mr-1" />
+            {activeSession.status === 'paused' ? 'Resume' : 'Continue'}
+          </Link>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-4 flex-wrap gap-y-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -70,6 +90,12 @@ export function Inventory() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
+          {!activeSession && (
+            <Link to="/inventory/session/new" className={cn(buttonVariants({ variant: 'outline' }))}>
+              <ClipboardList className="h-4 w-4 mr-1" />
+              Start Inventory
+            </Link>
+          )}
           <Link to="/inventory/stock-count" className={cn(buttonVariants({ variant: 'outline' }))}>
             Log Stock Count
           </Link>
