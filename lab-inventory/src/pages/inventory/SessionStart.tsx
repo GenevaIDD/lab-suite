@@ -94,11 +94,11 @@ export function SessionStart() {
       <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm space-y-1">
         <p className="font-medium">How it works</p>
         <ol className="list-decimal list-inside space-y-1 text-muted-foreground text-xs">
-          <li>Start the session — a list of all items is created in category order.</li>
-          <li>Print the blank count sheet and walk the lab, or count directly on your phone.</li>
-          <li>Enter quantities one by one. You can pause and resume later.</li>
-          <li>Complete the session — stock values update across the app.</li>
-          <li>Review the reconciliation report to spot discrepancies.</li>
+          <li>Click <strong>Start counting</strong> — a session is created with all items in category order.</li>
+          <li>Click <strong>Print sheet</strong> (top of the next page) to get a blank count form for the lab walk.</li>
+          <li>Walk the lab with the paper, write down quantities. Or count directly on your phone.</li>
+          <li>Back at the computer, enter values one by one. You can pause and come back later.</li>
+          <li>Complete the session — stock values update and you see a reconciliation report.</li>
         </ol>
       </div>
 

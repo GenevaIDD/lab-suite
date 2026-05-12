@@ -174,10 +174,10 @@ export function SessionEntry() {
           <Link
             to={`/inventory/session/${id}/print`}
             target="_blank"
-            className={cn(buttonVariants({ variant: 'outline', size: 'icon' }))}
-            title="Print blank count sheet"
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
           >
-            <Printer className="h-4 w-4" />
+            <Printer className="h-4 w-4 mr-1" />
+            Print sheet
           </Link>
           <Button
             variant="outline"
