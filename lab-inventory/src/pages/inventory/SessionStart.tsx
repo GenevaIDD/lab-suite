@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ArrowLeft, ClipboardList, Loader2 } from 'lucide-react'
@@ -14,6 +14,27 @@ import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+// Canonical category order matching lab's physical organisation
+const CATEGORY_ORDER = [
+  'Surveillance clinique',
+  'Milieux et chimique',
+  'Culture',
+  'Consomables',
+  'Articles',
+  'EEP',
+  'Transport',
+  'Accessoires de machines',
+  'Autres articles',
+]
+
+function sortCategories(cats: string[]): string[] {
+  return [...cats].sort((a, b) => {
+    const ai = CATEGORY_ORDER.findIndex((c) => c.toLowerCase() === a.toLowerCase())
+    const bi = CATEGORY_ORDER.findIndex((c) => c.toLowerCase() === b.toLowerCase())
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi) || a.localeCompare(b)
+  })
+}
+
 export function SessionStart() {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -23,6 +44,36 @@ export function SessionStart() {
 
   const [targetDate, setTargetDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [notes, setNotes] = useState('')
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set(['__all__']))
+
+  // Distinct categories from registered items, in canonical order
+  const categories = useMemo(() => {
+    const cats = [...new Set(itemTypes.map((i) => i.category))]
+    return sortCategories(cats)
+  }, [itemTypes])
+
+  const allSelected = selectedCategories.has('__all__')
+
+  function toggleAll() {
+    setSelectedCategories(new Set(['__all__']))
+  }
+
+  function toggleCategory(cat: string) {
+    const next = new Set(selectedCategories)
+    next.delete('__all__')
+    if (next.has(cat)) {
+      next.delete(cat)
+      if (next.size === 0) next.add('__all__') // fallback to all if nothing selected
+    } else {
+      next.add(cat)
+    }
+    setSelectedCategories(next)
+  }
+
+  const filteredItems = useMemo(() => {
+    if (allSelected) return itemTypes
+    return itemTypes.filter((i) => selectedCategories.has(i.category))
+  }, [itemTypes, selectedCategories, allSelected])
 
   async function handleStart() {
     if (activeSession) {
@@ -30,15 +81,15 @@ export function SessionStart() {
       navigate(`/inventory/session/${activeSession.id}`)
       return
     }
-    if (itemTypes.length === 0) {
-      toast.error('No items registered — add inventory items first.')
+    if (filteredItems.length === 0) {
+      toast.error('No items in the selected categories.')
       return
     }
     try {
       const session = await startSession.mutateAsync({
         targetDate,
         startedBy: profile?.full_name ?? null,
-        itemTypes: itemTypes.map((i) => ({
+        itemTypes: filteredItems.map((i) => ({
           id: i.id,
           name: i.name,
           category: i.category,
@@ -51,6 +102,10 @@ export function SessionStart() {
     }
   }
 
+  const scopeLabel = allSelected
+    ? `All categories (${isLoading ? '…' : filteredItems.length} items)`
+    : `${selectedCategories.size} category${selectedCategories.size > 1 ? 'ies' : ''} (${filteredItems.length} items)`
+
   return (
     <div className="space-y-6 max-w-lg">
       <Link to="/inventory" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
@@ -61,11 +116,63 @@ export function SessionStart() {
       <div>
         <h2 className="text-xl font-semibold">Start Inventory Count</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          A session will be created for all {isLoading ? '…' : itemTypes.length} registered items,
-          sorted by category. You can print a blank count sheet, fill it in during the lab walk,
-          then enter values here — or count directly on your phone.
+          Choose which categories to count, confirm the date, then print a blank sheet
+          for the lab walk or count directly on your phone.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Scope</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {/* All toggle */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={allSelected}
+                onChange={toggleAll}
+              />
+              <span className={cn('text-sm font-medium', allSelected && 'text-primary')}>
+                All categories
+              </span>
+              {allSelected && (
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {filteredItems.length} items
+                </span>
+              )}
+            </label>
+
+            {/* Per-category toggles */}
+            {categories.length > 0 && (
+              <div className="border-t pt-2 space-y-1.5 pl-1">
+                {categories.map((cat) => {
+                  const count = itemTypes.filter((i) => i.category === cat).length
+                  const checked = !allSelected && selectedCategories.has(cat)
+                  return (
+                    <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={checked}
+                        onChange={() => toggleCategory(cat)}
+                      />
+                      <span className={cn('text-sm', checked && 'font-medium text-primary')}>
+                        {cat}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {count} item{count !== 1 ? 's' : ''}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -100,15 +207,16 @@ export function SessionStart() {
       <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm space-y-1">
         <p className="font-medium">How it works</p>
         <ol className="list-decimal list-inside space-y-1 text-muted-foreground text-xs">
-          <li>Click <strong>Start counting</strong> — a session is created with all items in category order.</li>
-          <li>Click <strong>Print sheet</strong> (top of the next page) to get a blank count form for the lab walk.</li>
-          <li>Walk the lab with the paper, write down quantities. Or count directly on your phone.</li>
-          <li>Back at the computer, enter values one by one. You can pause and come back later.</li>
-          <li>Complete the session — stock values update and you see a reconciliation report.</li>
+          <li>Select categories, confirm date, click <strong>Start counting</strong>.</li>
+          <li>Click <strong>Print sheet</strong> (top of the next page) for a blank count form.</li>
+          <li>Walk the lab with the paper, write quantities. Or count directly on your phone.</li>
+          <li>Enter values one by one. You can pause and come back later.</li>
+          <li>Complete — stock values update and you see a reconciliation report.</li>
         </ol>
       </div>
 
-      <div className="flex gap-2 justify-end">
+      <div className="flex gap-2 justify-end items-center">
+        <span className="text-xs text-muted-foreground mr-auto">{scopeLabel}</span>
         <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>Cancel</Link>
         <Button onClick={handleStart} disabled={startSession.isPending || isLoading}>
           {startSession.isPending
