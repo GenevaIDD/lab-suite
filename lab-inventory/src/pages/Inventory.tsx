@@ -153,7 +153,11 @@ export function Inventory() {
                 ) : (
                   itemRows.map((i) => (
                     <TableRow key={i.id}>
-                      <TableCell className="font-medium">{i.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link to={`/inventory/items/${i.id}`} className="hover:underline">
+                          {i.name}
+                        </Link>
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{i.category}</TableCell>
                       <TableCell className="text-muted-foreground">{i.unit}</TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">{i.quantity}</TableCell>

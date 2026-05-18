@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, InventorySession, InventorySessionEntry } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry } from '@/types/database'
 
 export function useEquipmentList() {
   return useQuery({
@@ -55,6 +55,54 @@ export function useMaintenanceLogs(equipmentId: string | undefined) {
         .select('*')
         .eq('equipment_id', equipmentId!)
         .order('performed_at', { ascending: false })
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
+export function useItemType(id: string | undefined) {
+  return useQuery({
+    queryKey: ['item_types', id],
+    enabled: !!id,
+    queryFn: async (): Promise<ItemType | null> => {
+      const { data, error } = await supabase
+        .from('item_types')
+        .select('*')
+        .eq('id', id!)
+        .single()
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useItemCounts(itemTypeId: string | undefined) {
+  return useQuery({
+    queryKey: ['stock_counts', itemTypeId],
+    enabled: !!itemTypeId,
+    queryFn: async (): Promise<StockCount[]> => {
+      const { data, error } = await supabase
+        .from('stock_counts')
+        .select('*')
+        .eq('item_type_id', itemTypeId!)
+        .order('counted_at', { ascending: true })
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
+export function useItemDeliveries(itemTypeId: string | undefined) {
+  return useQuery({
+    queryKey: ['deliveries', itemTypeId],
+    enabled: !!itemTypeId,
+    queryFn: async (): Promise<Delivery[]> => {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select('*, item_source:item_sources(*)')
+        .eq('item_type_id', itemTypeId!)
+        .order('received_at', { ascending: true })
       if (error) throw error
       return data ?? []
     },

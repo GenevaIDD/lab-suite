@@ -12,6 +12,7 @@ import { InventoryNew } from '@/pages/InventoryNew'
 import { DeliveryNew } from '@/pages/DeliveryNew'
 import { Users } from '@/pages/Users'
 import { StockCountNew } from '@/pages/StockCountNew'
+import { ItemDetail } from '@/pages/inventory/ItemDetail'
 import { SessionStart } from '@/pages/inventory/SessionStart'
 import { SessionEntry } from '@/pages/inventory/SessionEntry'
 import { SessionPrint } from '@/pages/inventory/SessionPrint'
@@ -76,6 +77,7 @@ export default function App() {
               <Route path="equipment/new" element={<EquipmentNew />} />
               <Route path="equipment/:id" element={<EquipmentDetail />} />
               <Route path="inventory" element={<Inventory />} />
+              <Route path="inventory/items/:id" element={<ItemDetail />} />
               <Route path="inventory/new" element={<InventoryNew />} />
               <Route path="inventory/delivery/new" element={<DeliveryNew />} />
               <Route path="inventory/stock-count" element={<StockCountNew />} />
