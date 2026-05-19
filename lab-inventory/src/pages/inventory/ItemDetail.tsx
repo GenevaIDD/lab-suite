@@ -4,7 +4,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit } from 'lucide-react'
 import {
   ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer, Scatter, Legend,
+  ReferenceLine, ResponsiveContainer, Legend,
 } from 'recharts'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -215,31 +215,32 @@ export function ItemDetail() {
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={timeline} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="date" tickFormatter={d => fmtShort(d)} tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip content={<StockTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <ReferenceLine
                   y={item.min_threshold}
-                  stroke="hsl(var(--destructive))"
+                  stroke="#ef4444"
                   strokeDasharray="4 4"
-                  label={{ value: 'Min', fontSize: 10, fill: 'hsl(var(--destructive))' }}
+                  label={{ value: 'Min', fontSize: 10, fill: '#ef4444' }}
+                />
+                <Bar
+                  dataKey="deliveryQty"
+                  name="Livraison"
+                  fill="#22c55e"
+                  fillOpacity={0.75}
+                  radius={[3, 3, 0, 0]}
                 />
                 <Line
                   type="stepAfter"
                   dataKey="countQty"
                   name="Comptage"
-                  stroke="hsl(var(--primary))"
+                  stroke="#1d4ed8"
                   strokeWidth={2}
-                  dot={{ r: 4 }}
+                  dot={{ r: 4, fill: '#1d4ed8' }}
                   connectNulls={false}
-                />
-                <Scatter
-                  dataKey="deliveryQty"
-                  name="Livraison"
-                  fill="hsl(142 71% 45%)"
-                  shape="triangle"
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -261,17 +262,17 @@ export function ItemDetail() {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <ComposedChart data={burnRates} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} unit={` /${item.unit[0]}`} />
+                <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip content={<BurnTooltip />} />
-                <Bar dataKey="burnRate" name={`${item.unit}/jour`} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="burnRate" name={`${item.unit}/jour`} fill="#1d4ed8" radius={[4, 4, 0, 0]} />
                 {avgBurnRate !== null && (
                   <ReferenceLine
                     y={avgBurnRate}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="#6b7280"
                     strokeDasharray="4 4"
-                    label={{ value: 'Moy.', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    label={{ value: 'Moy.', fontSize: 10, fill: '#6b7280' }}
                   />
                 )}
               </ComposedChart>
