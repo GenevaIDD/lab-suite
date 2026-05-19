@@ -158,7 +158,11 @@ export function Dashboard() {
               </div>
             ) : (
               lowStock.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <Link
+                  key={item.id}
+                  to={`/inventory/items/${item.id}`}
+                  className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 hover:bg-muted/30 transition-colors"
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -166,7 +170,7 @@ export function Dashboard() {
                     </p>
                   </div>
                   <Badge variant="destructive" className="text-xs shrink-0">Faible</Badge>
-                </div>
+                </Link>
               ))
             )}
             {lowStock.length > 0 && (
