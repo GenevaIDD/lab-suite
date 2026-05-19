@@ -1,40 +1,17 @@
-import { useMemo, Component } from 'react'
-import type { ReactNode } from 'react'
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit } from 'lucide-react'
-import {
-  ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer, Legend,
-} from 'recharts'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { StockChart, BurnChart } from '@/components/ui/MiniChart'
 import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
-// ── Error boundary ────────────────────────────────────────────
-class ChartErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
-  state = { error: null }
-  static getDerivedStateFromError(e: Error) { return { error: e.message } }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="py-6 text-center text-xs text-muted-foreground border rounded-md">
-          Erreur graphique: {this.state.error}
-        </div>
-      )
-    }
-    return this.props.children
-  }
-}
-
-// ── Helpers ───────────────────────────────────────────────────
 function fmt(d: string) { return format(parseISO(d), 'd MMM yyyy') }
-function fmtShort(d: string) {
-  try { return format(parseISO(d), 'MMM yy') } catch { return d }
-}
+function fmtShort(d: string) { try { return format(parseISO(d), 'MMM yy') } catch { return d } }
 
 function buildTimeline(
   counts: Array<{ quantity: number; counted_at: string }>,
@@ -81,36 +58,6 @@ function buildBurnRate(
     periods.push({ period: fmtShort(end), label: `${fmt(start)} → ${fmt(end)}`, burnRate: rate, consumed, days })
   }
   return periods
-}
-
-// ── Stock tooltip ─────────────────────────────────────────────
-const stockTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-background border rounded-md shadow-md px-3 py-2 text-xs space-y-1">
-      <p className="font-medium text-muted-foreground">{String(label)}</p>
-      {payload.filter(p => p.value != null).map(p => (
-        <p key={p.name} style={{ color: p.color }}>
-          {p.name}: <span className="font-semibold">{p.value}</span>
-        </p>
-      ))}
-    </div>
-  )
-}
-
-// ── Burn tooltip ──────────────────────────────────────────────
-const burnTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { label: string; burnRate: number; consumed: number; days: number } }> }) => {
-  if (!active || !payload?.length) return null
-  const d = payload[0]?.payload
-  if (!d) return null
-  return (
-    <div className="bg-background border rounded-md shadow-md px-3 py-2 text-xs space-y-1">
-      <p className="font-medium text-muted-foreground">{d.label}</p>
-      <p>Taux: <span className="font-semibold">{d.burnRate} / jour</span></p>
-      <p>Consommé: <span className="font-semibold">{d.consumed}</span></p>
-      <p>Durée: <span className="font-semibold">{d.days} jours</span></p>
-    </div>
-  )
 }
 
 // ── Component ─────────────────────────────────────────────────
@@ -193,24 +140,9 @@ export function ItemDetail() {
       <Card>
         <CardHeader><CardTitle className="text-base">Stock au fil du temps</CardTitle></CardHeader>
         <CardContent>
-          {timeline.length === 0 ? <Empty text="Aucun comptage enregistré pour cet article." /> : (
-            <ChartErrorBoundary>
-              <ResponsiveContainer width="100%" height={220}>
-                <ComposedChart data={timeline} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="date" tickFormatter={fmtShort} tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} width={50} />
-                  <Tooltip content={stockTooltip} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <ReferenceLine y={item.min_threshold} stroke="#ef4444" strokeDasharray="4 4"
-                    label={{ value: 'Min', fontSize: 10, fill: '#ef4444', position: 'right' }} />
-                  <Bar dataKey="deliveryQty" name="Livraison" fill="#22c55e" fillOpacity={0.8} radius={[3, 3, 0, 0]} />
-                  <Line type="stepAfter" dataKey="countQty" name="Comptage" stroke="#1d4ed8"
-                    strokeWidth={2} dot={{ r: 4, fill: '#1d4ed8' }} connectNulls={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartErrorBoundary>
-          )}
+          {timeline.length === 0
+            ? <Empty text="Aucun comptage enregistré pour cet article." />
+            : <StockChart data={timeline} minThreshold={item.min_threshold} />}
         </CardContent>
       </Card>
 
@@ -223,25 +155,9 @@ export function ItemDetail() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {burnRates.length === 0 ? (
-            <Empty text="Au moins deux comptages sont nécessaires pour calculer le taux de consommation." />
-          ) : (
-            <ChartErrorBoundary>
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={burnRates} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} width={50} />
-                  <Tooltip content={burnTooltip} />
-                  <Bar dataKey="burnRate" name={`${item.unit}/jour`} fill="#1d4ed8" radius={[4, 4, 0, 0]} />
-                  {avgBurnRate !== null && (
-                    <ReferenceLine y={avgBurnRate} stroke="#6b7280" strokeDasharray="4 4"
-                      label={{ value: 'Moy.', fontSize: 10, fill: '#6b7280', position: 'right' }} />
-                  )}
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartErrorBoundary>
-          )}
+          {burnRates.length === 0
+            ? <Empty text="Au moins deux comptages sont nécessaires pour calculer le taux de consommation." />
+            : <BurnChart data={burnRates} avgRate={avgBurnRate} unit={item.unit} />}
         </CardContent>
       </Card>
 
