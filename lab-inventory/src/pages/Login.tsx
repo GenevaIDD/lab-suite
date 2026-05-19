@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FlaskConical, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,11 +30,8 @@ export function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 px-4">
       <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <FlaskConical className="h-7 w-7 text-primary" />
-            <span className="text-xl font-semibold">Uvira Lab Inventory</span>
-          </div>
+        <div className="flex flex-col items-center gap-3">
+          <img src="/logo.svg" alt="Geneva Disease Dynamics" className="w-48" />
           <p className="text-sm text-muted-foreground">Connectez-vous à votre compte</p>
         </div>
 

@@ -4,7 +4,6 @@ import {
   Wrench,
   Package,
   Users,
-  FlaskConical,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -29,14 +28,12 @@ const navItems = [
 export function AppSidebar() {
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <FlaskConical className="h-6 w-6 text-primary" />
-          <div>
-            <p className="text-sm font-semibold leading-tight">Uvira Lab</p>
-            <p className="text-xs text-muted-foreground">Inventory System</p>
-          </div>
-        </div>
+      <SidebarHeader className="border-b px-4 py-4">
+        <img
+          src="/logo.svg"
+          alt="Geneva Disease Dynamics"
+          className="w-full max-w-[160px] mx-auto"
+        />
       </SidebarHeader>
 
       <SidebarContent>
