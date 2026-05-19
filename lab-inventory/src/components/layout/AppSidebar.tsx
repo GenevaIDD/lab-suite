@@ -20,10 +20,10 @@ import {
 } from '@/components/ui/sidebar'
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/equipment', label: 'Equipment', icon: Wrench },
-  { to: '/inventory', label: 'Inventory', icon: Package },
-  { to: '/users', label: 'Users', icon: Users },
+  { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
+  { to: '/equipment', label: 'Équipements', icon: Wrench },
+  { to: '/inventory', label: 'Inventaire', icon: Package },
+  { to: '/users', label: 'Utilisateurs', icon: Users },
 ]
 
 export function AppSidebar() {

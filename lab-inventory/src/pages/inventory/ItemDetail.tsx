@@ -55,7 +55,7 @@ function buildBurnRate(
 
     const consumed = Math.max(0, prev.quantity + deliveriesBetween - curr.quantity)
     const rate = Math.round((consumed / days) * 100) / 100
-    periods.push({ period: fmtShort(end), label: `${fmt(start)} → ${fmt(end)}`, burnRate: rate, consumed, days })
+    periods.push({ period: `${fmtShort(start)} – ${fmtShort(end)}`, label: `${fmt(start)} → ${fmt(end)}`, burnRate: rate, consumed, days })
   }
   return periods
 }

@@ -5,19 +5,20 @@ import { AppHeader } from './AppHeader'
 import { Toaster } from '@/components/ui/sonner'
 
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard',
-  '/equipment': 'Equipment',
-  '/equipment/new': 'New Equipment',
-  '/inventory': 'Inventory',
-  '/inventory/new': 'New Item',
-  '/inventory/delivery/new': 'New Delivery',
-  '/inventory/stock-count': 'Log Stock Count',
-  '/users': 'Users',
+  '/': 'Tableau de bord',
+  '/equipment': 'Équipements',
+  '/equipment/new': 'Nouvel équipement',
+  '/inventory': 'Inventaire',
+  '/inventory/new': 'Nouvel article',
+  '/inventory/delivery/new': 'Nouvelle livraison',
+  '/inventory/stock-count': 'Comptage de stock',
+  '/inventory/session/new': 'Démarrer l\'inventaire',
+  '/users': 'Utilisateurs',
 }
 
 export function AppShell() {
   const { pathname } = useLocation()
-  const title = PAGE_TITLES[pathname] ?? (pathname.startsWith('/equipment/') ? 'Equipment' : 'Lab Inventory')
+  const title = PAGE_TITLES[pathname] ?? (pathname.startsWith('/equipment/') ? 'Équipements' : pathname.startsWith('/inventory/') ? 'Inventaire' : 'Inventaire Lab')
 
   return (
     <SidebarProvider>

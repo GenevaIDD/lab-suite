@@ -46,7 +46,7 @@ export function DeliveryNew() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!itemTypeId || !quantity) {
-      toast.error('Item and quantity are required')
+      toast.error('L\'article et la quantité sont requis')
       return
     }
     try {
@@ -73,27 +73,27 @@ export function DeliveryNew() {
     <form onSubmit={onSubmit} className="space-y-6 max-w-2xl">
       <Link to="/inventory" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Back to Inventory
+        Retour à l'inventaire
       </Link>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Log new delivery</CardTitle>
-          <p className="text-sm text-muted-foreground">Record incoming stock from a supplier.</p>
+          <CardTitle className="text-base">Enregistrer une livraison</CardTitle>
+          <p className="text-sm text-muted-foreground">Enregistrez l'arrivée de stock d'un fournisseur.</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
             <Label htmlFor="item">Item *</Label>
             <Select value={itemTypeId} onValueChange={(v) => { setItemTypeId(v ?? ''); setItemSourceId('') }}>
               <SelectTrigger id="item">
-                <SelectValue placeholder={loadingTypes ? 'Loading…' : 'Select an item'}>
+                <SelectValue placeholder={loadingTypes ? 'Chargement…' : 'Sélectionner un article'}>
                   {(v: string | null) => {
                     const item = itemTypes.find((i) => i.id === v)
                     return item ? `${item.name} (${item.unit})` : ''
                   }}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent alignItemWithTrigger={false} className="min-w-[min(90vw,520px)]">
                 {itemTypes.map((i) => (
                   <SelectItem key={i.id} value={i.id}>
                     {i.name} <span className="text-muted-foreground">({i.unit})</span>
@@ -103,7 +103,7 @@ export function DeliveryNew() {
             </Select>
             {!loadingTypes && itemTypes.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                No items registered yet. <Link to="/inventory/new" className="underline">Add one first</Link>.
+                Aucun article enregistré. <Link to="/inventory/new" className="underline">Ajouter d'abord</Link>.
               </p>
             )}
           </div>
@@ -111,12 +111,12 @@ export function DeliveryNew() {
           {itemTypeId && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <Label htmlFor="source">Manufacturer / source</Label>
+                <Label htmlFor="source">Fabricant / source</Label>
                 <NewSourceDialog itemTypeId={itemTypeId} onCreated={setItemSourceId} />
               </div>
               <Select value={itemSourceId} onValueChange={(v) => setItemSourceId(v ?? '')}>
                 <SelectTrigger id="source">
-                  <SelectValue placeholder="Select a manufacturer (optional)">
+                  <SelectValue placeholder="Sélectionner un fabricant (optionnel)">
                     {(v: string | null) => {
                       const s = sources.find((src) => src.id === v)
                       return s ? `${s.manufacturer}${s.supplier ? ` (via ${s.supplier})` : ''}` : ''
@@ -136,23 +136,23 @@ export function DeliveryNew() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="qty">Quantity * {selectedItem && <span className="text-muted-foreground font-normal">({selectedItem.unit})</span>}</Label>
+              <Label htmlFor="qty">Quantité * {selectedItem && <span className="text-muted-foreground font-normal">({selectedItem.unit})</span>}</Label>
               <Input id="qty" type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="lot">Lot number</Label>
+              <Label htmlFor="lot">Numéro de lot</Label>
               <Input id="lot" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="exp">Expiry date</Label>
+              <Label htmlFor="exp">Date d'expiration</Label>
               <Input id="exp" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="rec-at">Received on *</Label>
+              <Label htmlFor="rec-at">Reçu le *</Label>
               <Input id="rec-at" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="rec-by">Received by</Label>
+              <Label htmlFor="rec-by">Reçu par</Label>
               <Input id="rec-by" value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} placeholder="Name (optional)" />
             </div>
           </div>
@@ -165,10 +165,10 @@ export function DeliveryNew() {
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>Cancel</Link>
+        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>Annuler</Link>
         <Button type="submit" disabled={createDelivery.isPending}>
           {createDelivery.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          Save Delivery
+          Enregistrer la livraison
         </Button>
       </div>
     </form>
@@ -214,20 +214,20 @@ function NewSourceDialog({ itemTypeId, onCreated }: { itemTypeId: string; onCrea
       <DialogContent>
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>Add new manufacturer</DialogTitle>
+            <DialogTitle>Ajouter un fabricant</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-3">
             <div className="space-y-1">
-              <Label htmlFor="new-mfr">Manufacturer</Label>
+              <Label htmlFor="new-mfr">Fabricant</Label>
               <Input id="new-mfr" value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="new-sup">Supplier (optional)</Label>
+              <Label htmlFor="new-sup">Fournisseur (optionnel)</Label>
               <Input id="new-sup" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
             <Button type="submit" disabled={!manufacturer || createSource.isPending}>
               {createSource.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               Save

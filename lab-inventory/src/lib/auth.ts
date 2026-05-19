@@ -81,8 +81,8 @@ export function canEnterData(profile: Profile | null): boolean {
 }
 
 export const ROLE_LABELS: Record<string, string> = {
-  admin: 'Admin',
-  lab_manager: 'Lab Manager',
-  supervisor: 'Supervisor',
-  tech: 'Lab Tech',
+  admin: 'Administrateur',
+  lab_manager: 'Responsable de labo',
+  supervisor: 'Superviseur',
+  tech: 'Technicien',
 }

@@ -17,7 +17,7 @@ interface BurnPeriod {
 }
 
 // ── helpers ───────────────────────────────────────────────────
-const PAD = { top: 16, right: 24, bottom: 32, left: 48 }
+const PAD = { top: 16, right: 24, bottom: 48, left: 48 }
 
 function scaleY(val: number, min: number, max: number, h: number) {
   if (max === min) return h / 2
@@ -56,20 +56,13 @@ export function StockChart({
 
   const sy = (v: number) => scaleY(v, yMin, yMax, H)
 
-  // Step-after path from count points
+  // Count dot positions (no connecting line — discrete measurements)
   const countPts = counts.map((d) => ({
     x: PAD.left + scaleX(data.indexOf(d), data.length, iW),
     y: PAD.top  + sy(d.countQty as number),
+    qty: d.countQty as number,
+    date: d.date,
   }))
-
-  let pathD = ''
-  if (countPts.length > 1) {
-    // step-after: from each point go horizontal to next x, then vertical
-    pathD = `M ${countPts[0].x} ${countPts[0].y}` +
-      countPts.slice(1).map((p) => ` H ${p.x} V ${p.y}`).join('')
-  } else if (countPts.length === 1) {
-    pathD = `M ${countPts[0].x} ${countPts[0].y}`
-  }
 
   // Y axis ticks
   const yTicks = 4
@@ -130,15 +123,16 @@ export function StockChart({
           )
         })}
 
-        {/* Step-after line */}
-        {pathD && (
-          <path d={pathD} fill="none" stroke="#1d4ed8" strokeWidth={2.5} strokeLinejoin="round" />
-        )}
-
-        {/* Count dots */}
+        {/* Vertical drop lines from dot to x-axis (make discrete nature clear) */}
         {countPts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={4} fill="#1d4ed8" stroke="#fff" strokeWidth={1.5}>
-            <title>{counts[i].date}: {counts[i].countQty}</title>
+          <line key={`drop-${i}`} x1={p.x} x2={p.x} y1={p.y} y2={PAD.top + H}
+            stroke="#1d4ed8" strokeWidth={1} strokeOpacity={0.25} strokeDasharray="3 2" />
+        ))}
+
+        {/* Count dots — isolated, no connecting line */}
+        {countPts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={5} fill="#1d4ed8" stroke="#fff" strokeWidth={1.5}>
+            <title>{p.date}: {p.qty}</title>
           </circle>
         ))}
 
@@ -154,8 +148,8 @@ export function StockChart({
         })}
 
         {/* Legend */}
-        <circle cx={PAD.left + 6} cy={12} r={4} fill="#1d4ed8" />
-        <text x={PAD.left + 14} y={16} fontSize={10} fill="#6b7280">Comptage</text>
+        <circle cx={PAD.left + 6} cy={12} r={5} fill="#1d4ed8" stroke="#fff" strokeWidth={1.5} />
+        <text x={PAD.left + 16} y={16} fontSize={10} fill="#6b7280">Comptage</text>
         <rect x={PAD.left + 80} y={6} width={10} height={10} fill="#22c55e" fillOpacity={0.75} rx={1} />
         <text x={PAD.left + 94} y={16} fontSize={10} fill="#6b7280">Livraison</text>
         <line x1={PAD.left + 155} x2={PAD.left + 170} y1={11} y2={11} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1.5} />
@@ -227,16 +221,20 @@ export function BurnChart({
 
         {/* Bars */}
         {data.map((d, i) => {
-          const x = PAD.left + (iW / data.length) * i + (iW / data.length - barW) / 2
+          const slotW = iW / data.length
+          const x = PAD.left + slotW * i + (slotW - barW) / 2
           const bH = (d.burnRate / maxRate) * H
+          const labelX = PAD.left + slotW * i + slotW / 2
           return (
             <g key={i}>
-              <rect
-                x={x} y={PAD.top + H - bH}
-                width={barW} height={bH}
-                fill="#1d4ed8" rx={3}
-              />
-              <text x={x + barW / 2} y={PAD.top + H + 14} textAnchor="middle" fontSize={10} fill="#9ca3af">
+              <rect x={x} y={PAD.top + H - bH} width={barW} height={bH} fill="#1d4ed8" rx={3} />
+              <text
+                x={labelX} y={PAD.top + H + 8}
+                textAnchor="end"
+                fontSize={9}
+                fill="#9ca3af"
+                transform={`rotate(-35, ${labelX}, ${PAD.top + H + 8})`}
+              >
                 {d.period}
               </text>
               <title>{d.label}{'\n'}{d.burnRate} {unit}/jour{'\n'}Consommé: {d.consumed}</title>

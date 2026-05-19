@@ -73,12 +73,12 @@ export function InventoryNew() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Item details</CardTitle>
+          <CardTitle className="text-base">Détails de l'article</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name">Nom *</Label>
               <Input
                 id="name"
                 value={name}
@@ -88,7 +88,7 @@ export function InventoryNew() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="category">Category *</Label>
+              <Label htmlFor="category">Catégorie *</Label>
               <SelectOrNew
                 id="category"
                 value={category}
@@ -99,7 +99,7 @@ export function InventoryNew() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="unit">Unit *</Label>
+              <Label htmlFor="unit">Unité *</Label>
               <SelectOrNew
                 id="unit"
                 value={unit}
@@ -110,7 +110,7 @@ export function InventoryNew() {
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="min">Minimum stock threshold</Label>
+              <Label htmlFor="min">Seuil minimum de stock</Label>
               <Input
                 id="min"
                 type="number"
@@ -119,7 +119,7 @@ export function InventoryNew() {
                 value={minThreshold}
                 onChange={(e) => setMinThreshold(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">Email alert fires when total stock drops below this.</p>
+              <p className="text-xs text-muted-foreground">Une alerte email est envoyée quand le stock total tombe en dessous de ce seuil.</p>
             </div>
           </div>
         </CardContent>
@@ -127,7 +127,7 @@ export function InventoryNew() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Manufacturers / suppliers</CardTitle>
+          <CardTitle className="text-base">Fabricants / fournisseurs</CardTitle>
         </CardHeader>
         <CardContent>
           <SourceEditor sources={sources} onChange={setSources} />
@@ -136,7 +136,7 @@ export function InventoryNew() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Notes</CardTitle>
+          <CardTitle className="text-base">Remarques</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -149,10 +149,10 @@ export function InventoryNew() {
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>Cancel</Link>
+        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>Annuler</Link>
         <Button type="submit" disabled={submitting}>
           {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          Save Item
+          Enregistrer l'article
         </Button>
       </div>
     </form>

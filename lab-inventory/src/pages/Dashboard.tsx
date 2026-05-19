@@ -60,8 +60,8 @@ export function Dashboard() {
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <p className="text-sm font-medium">
               {[
-                overdue.length > 0 && `${overdue.length} maintenance task${overdue.length > 1 ? 's' : ''} overdue`,
-                lowStock.length > 0 && `${lowStock.length} item${lowStock.length > 1 ? 's' : ''} below minimum stock`,
+                overdue.length > 0 && `${overdue.length} maintenance en retard`,
+                lowStock.length > 0 && `${lowStock.length} article${lowStock.length > 1 ? 's' : ''} en-dessous du seuil minimum`,
               ].filter(Boolean).join(' · ')}
             </p>
           </div>
@@ -71,32 +71,32 @@ export function Dashboard() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Equipment"
+          title="Équipements"
           value={loading ? '…' : String(equipment.length)}
           icon={Wrench}
-          description="registered items"
+          description="articles enregistrés"
           href="/equipment"
         />
         <StatCard
-          title="Overdue Maintenance"
+          title="Maintenance en retard"
           value={loading ? '…' : String(overdue.length)}
           icon={Clock}
-          description="need attention"
+          description="nécessitent attention"
           urgent={overdue.length > 0}
           href="/equipment"
         />
         <StatCard
-          title="Inventory Items"
+          title="Articles inventaire"
           value={String(itemTypes.length)}
           icon={Package}
-          description="item types tracked"
+          description="types d'articles suivis"
           href="/inventory"
         />
         <StatCard
-          title="Low Stock"
+          title="Stock faible"
           value={String(lowStock.length)}
           icon={AlertTriangle}
-          description="below threshold"
+          description="en-dessous du seuil"
           urgent={lowStock.length > 0}
           href="/inventory"
         />
@@ -107,7 +107,7 @@ export function Dashboard() {
         {/* Maintenance */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Maintenance alerts</CardTitle>
+            <CardTitle className="text-base">Alertes de maintenance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {loading ? (
@@ -115,7 +115,7 @@ export function Dashboard() {
             ) : overdue.length === 0 && dueSoon.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                All maintenance up to date.
+                Toutes les maintenances sont à jour.
               </div>
             ) : (
               <>
@@ -148,13 +148,13 @@ export function Dashboard() {
         {/* Low stock */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Low stock alerts</CardTitle>
+            <CardTitle className="text-base">Alertes stock faible</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {lowStock.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                All items above minimum threshold.
+                Tous les articles sont au-dessus du seuil minimum.
               </div>
             ) : (
               lowStock.map((item) => (
@@ -165,13 +165,13 @@ export function Dashboard() {
                       {item.quantity} {item.unit} · min {item.min_threshold}
                     </p>
                   </div>
-                  <Badge variant="destructive" className="text-xs shrink-0">Low</Badge>
+                  <Badge variant="destructive" className="text-xs shrink-0">Faible</Badge>
                 </div>
               ))
             )}
             {lowStock.length > 0 && (
               <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'w-full mt-2')}>
-                View inventory
+                Voir l'inventaire
               </Link>
             )}
           </CardContent>
@@ -238,11 +238,11 @@ function MaintenanceRow({
       </div>
       {status === 'overdue' ? (
         <Badge variant="destructive" className="text-xs shrink-0">
-          Overdue {format(parseISO(dueDate), 'd MMM')}
+          En retard {format(parseISO(dueDate), 'd MMM')}
         </Badge>
       ) : (
         <Badge className="text-xs shrink-0 bg-amber-500 hover:bg-amber-500/90">
-          Due in {days}d
+          Dans {days}j
         </Badge>
       )}
     </Link>

@@ -4,29 +4,30 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Users as UsersIcon } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
-  manager: 'Manager',
-  supervisor: 'Supervisor',
-  tech: 'Lab Tech',
+  admin: 'Administrateur',
+  lab_manager: 'Responsable de labo',
+  supervisor: 'Superviseur',
+  tech: 'Technicien',
 }
 
 export function Users() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Users are managed through Supabase Auth. Role assignment happens in the profiles table.
+        Les utilisateurs sont gérés via Supabase Auth. Le rôle est assigné dans la table profiles.
       </p>
 
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-col items-center gap-2 py-14 text-muted-foreground">
             <UsersIcon className="h-8 w-8 opacity-30" />
-            <p className="text-sm">User list will appear here once auth is configured.</p>
+            <p className="text-sm">La liste des utilisateurs apparaîtra ici une fois l'authentification configurée.</p>
           </div>
         </CardContent>
       </Card>
 
       <div className="text-xs text-muted-foreground flex gap-2 items-center">
-        Roles:
+        Rôles :
         {Object.entries(ROLE_LABELS).map(([key, label]) => (
           <Badge key={key} variant="outline" className="text-xs">{label}</Badge>
         ))}

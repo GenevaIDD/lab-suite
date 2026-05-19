@@ -46,7 +46,7 @@ export function Equipment() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search equipment..."
+            placeholder="Rechercher un équipement..."
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -54,7 +54,7 @@ export function Equipment() {
         </div>
         <Link to="/equipment/new" className={cn(buttonVariants())}>
           <Plus className="h-4 w-4 mr-1" />
-          Add Equipment
+          Ajouter équipement
         </Link>
       </div>
 
@@ -63,10 +63,10 @@ export function Equipment() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Next Maintenance</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Nom</TableHead>
+                <TableHead>Catégorie</TableHead>
+                <TableHead>Prochaine maintenance</TableHead>
+                <TableHead>Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -79,7 +79,7 @@ export function Equipment() {
               ) : error ? (
                 <TableRow>
                   <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                    Cannot load equipment — check Supabase configuration.
+                    Impossible de charger les équipements — vérifier la configuration Supabase.
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
@@ -88,11 +88,11 @@ export function Equipment() {
                     <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                       <Wrench className="h-8 w-8 opacity-30" />
                       <p className="text-sm">
-                        {search ? 'No equipment matches your search.' : 'No equipment registered yet.'}
+                        {search ? 'Aucun équipement ne correspond à la recherche.' : 'Aucun équipement enregistré.'}
                       </p>
                       {!search && (
                         <Link to="/equipment/new" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-                          Add your first equipment
+                          Ajouter le premier équipement
                         </Link>
                       )}
                     </div>
@@ -128,9 +128,9 @@ export function Equipment() {
       </Card>
 
       <div className="text-xs text-muted-foreground flex gap-2 items-center">
-        Status legend:
-        <Badge variant="destructive" className="text-xs">Overdue</Badge>
-        <Badge className="text-xs bg-amber-500">Due soon</Badge>
+        Légende :
+        <Badge variant="destructive" className="text-xs">En retard</Badge>
+        <Badge className="text-xs bg-amber-500">Bientôt dû</Badge>
         <Badge variant="outline" className="text-xs">OK</Badge>
       </div>
     </div>
@@ -138,12 +138,12 @@ export function Equipment() {
 }
 
 function StatusBadge({ schedule, days }: { schedule?: MaintenanceSchedule; days?: number }) {
-  if (!schedule || days === undefined) return <Badge variant="outline" className="text-xs">No schedule</Badge>
+  if (!schedule || days === undefined) return <Badge variant="outline" className="text-xs">Sans planning</Badge>
   if (days < 0) {
     return (
       <Badge variant="destructive" className="gap-1 text-xs">
         <AlertTriangle className="h-3 w-3" />
-        Overdue
+        En retard
       </Badge>
     )
   }
@@ -151,7 +151,7 @@ function StatusBadge({ schedule, days }: { schedule?: MaintenanceSchedule; days?
     return (
       <Badge className="gap-1 text-xs bg-amber-500 hover:bg-amber-500/90">
         <Clock className="h-3 w-3" />
-        Due soon
+        Bientôt dû
       </Badge>
     )
   }

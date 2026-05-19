@@ -38,7 +38,7 @@ export function AppHeader({ title }: AppHeaderProps) {
       await signOut()
       navigate('/login', { replace: true })
     } catch {
-      toast.error('Sign out failed')
+      toast.error('Déconnexion échouée')
     }
   }
 
@@ -52,18 +52,18 @@ export function AppHeader({ title }: AppHeaderProps) {
         {pendingWrites > 0 && (
           <Badge variant="secondary" className="gap-1 text-xs">
             <CloudUpload className="h-3 w-3" />
-            {pendingWrites} pending
+            {pendingWrites} en attente
           </Badge>
         )}
         {isOnline ? (
           <Badge variant="outline" className="gap-1 text-xs text-green-600 border-green-200">
             <Wifi className="h-3 w-3" />
-            Online
+            En ligne
           </Badge>
         ) : (
           <Badge variant="outline" className="gap-1 text-xs text-amber-600 border-amber-200">
             <WifiOff className="h-3 w-3" />
-            Offline
+            Hors ligne
           </Badge>
         )}
 
@@ -88,7 +88,7 @@ export function AppHeader({ title }: AppHeaderProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive gap-2 cursor-pointer">
               <LogOut className="h-4 w-4" />
-              Sign out
+              Se déconnecter
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

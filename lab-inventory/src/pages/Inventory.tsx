@@ -83,7 +83,7 @@ export function Inventory() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={tab === 'items' ? 'Search items...' : 'Search deliveries...'}
+            placeholder={tab === 'items' ? 'Rechercher un article...' : 'Rechercher une livraison...'}
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -93,26 +93,26 @@ export function Inventory() {
           {!activeSession && (
             <Link to="/inventory/session/new" className={cn(buttonVariants({ variant: 'outline' }))}>
               <ClipboardList className="h-4 w-4 mr-1" />
-              Start Inventory
+              Démarrer l'inventaire
             </Link>
           )}
           <Link to="/inventory/stock-count" className={cn(buttonVariants({ variant: 'outline' }))}>
-            Log Stock Count
+            Comptage de stock
           </Link>
           <Link to="/inventory/delivery/new" className={cn(buttonVariants({ variant: 'outline' }))}>
-            Log New Delivery
+            Nouvelle livraison
           </Link>
           <Link to="/inventory/new" className={cn(buttonVariants())}>
             <Plus className="h-4 w-4 mr-1" />
-            New Item
+            Nouvel article
           </Link>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
-          <TabsTrigger value="items">Current Stock</TabsTrigger>
-          <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
+          <TabsTrigger value="items">Stock actuel</TabsTrigger>
+          <TabsTrigger value="deliveries">Livraisons</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -123,21 +123,21 @@ export function Inventory() {
               <TableRow>
                 {tab === 'items' ? (
                   <>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead>Article</TableHead>
+                    <TableHead>Catégorie</TableHead>
+                    <TableHead>Unité</TableHead>
+                    <TableHead className="text-right">Quantité</TableHead>
                     <TableHead className="text-right">Min</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Statut</TableHead>
                   </>
                 ) : (
                   <>
                     <TableHead>Date</TableHead>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Manufacturer</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead>Lot #</TableHead>
-                    <TableHead>Expiry</TableHead>
+                    <TableHead>Article</TableHead>
+                    <TableHead>Fabricant</TableHead>
+                    <TableHead className="text-right">Qté</TableHead>
+                    <TableHead>N° lot</TableHead>
+                    <TableHead>Expiration</TableHead>
                   </>
                 )}
               </TableRow>
@@ -147,7 +147,7 @@ export function Inventory() {
                 loadingItems ? (
                   <TableRow><TableCell colSpan={6} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
                 ) : itemsError ? (
-                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">Cannot load — check Supabase configuration.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">Impossible de charger — vérifier la configuration Supabase.</TableCell></TableRow>
                 ) : itemRows.length === 0 ? (
                   <TableRow><TableCell colSpan={6}><EmptyState search={search} target="items" /></TableCell></TableRow>
                 ) : (
@@ -164,7 +164,7 @@ export function Inventory() {
                       <TableCell className="text-right text-muted-foreground tabular-nums">{i.min_threshold}</TableCell>
                       <TableCell>
                         {i.low ? (
-                          <Badge variant="destructive" className="text-xs">Low stock</Badge>
+                          <Badge variant="destructive" className="text-xs">Stock faible</Badge>
                         ) : (
                           <Badge variant="outline" className="text-xs">OK</Badge>
                         )}
@@ -194,8 +194,8 @@ export function Inventory() {
       </Card>
 
       <div className="text-xs text-muted-foreground flex gap-2 items-center">
-        Stock status:
-        <Badge variant="destructive" className="text-xs">Low stock</Badge>
+        Statut :
+        <Badge variant="destructive" className="text-xs">Stock faible</Badge>
         <Badge variant="outline" className="text-xs">OK</Badge>
       </div>
     </div>
@@ -208,17 +208,17 @@ function EmptyState({ search, target }: { search: string; target: 'items' | 'del
       <Package className="h-8 w-8 opacity-30" />
       <p className="text-sm">
         {search
-          ? 'No matches.'
+          ? 'Aucun résultat.'
           : target === 'items'
-            ? 'No inventory items registered yet.'
-            : 'No deliveries logged yet.'}
+            ? 'Aucun article enregistré.'
+            : 'Aucune livraison enregistrée.'}
       </p>
       {!search && (
         <Link
           to={target === 'items' ? '/inventory/new' : '/inventory/delivery/new'}
           className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
         >
-          {target === 'items' ? 'Add first item' : 'Log first delivery'}
+          {target === 'items' ? 'Ajouter le premier article' : 'Enregistrer la première livraison'}
         </Link>
       )}
     </div>

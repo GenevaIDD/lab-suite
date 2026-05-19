@@ -35,13 +35,13 @@ export function Login() {
             <FlaskConical className="h-7 w-7 text-primary" />
             <span className="text-xl font-semibold">Uvira Lab Inventory</span>
           </div>
-          <p className="text-sm text-muted-foreground">Sign in to your account</p>
+          <p className="text-sm text-muted-foreground">Connectez-vous à votre compte</p>
         </div>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Sign in</CardTitle>
-            <CardDescription>Enter your email and password</CardDescription>
+            <CardTitle className="text-base">Connexion</CardTitle>
+            <CardDescription>Entrez votre email et mot de passe</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -57,7 +57,7 @@ export function Login() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Mot de passe</Label>
                 <Input
                   id="password"
                   type="password"
@@ -69,14 +69,14 @@ export function Login() {
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Sign in
+                Se connecter
               </Button>
             </form>
           </CardContent>
         </Card>
 
         <p className="text-center text-xs text-muted-foreground">
-          No account yet? Ask your administrator.
+          Pas de compte ? Contactez votre administrateur.
         </p>
       </div>
     </div>
