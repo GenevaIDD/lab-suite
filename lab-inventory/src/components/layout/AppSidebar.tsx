@@ -29,11 +29,16 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-4">
-        <img
-          src="/logo.svg"
-          alt="Geneva Disease Dynamics"
-          className="w-full max-w-[160px] mx-auto"
-        />
+        <div className="flex flex-col items-center gap-1.5">
+          <img
+            src="/logo.svg"
+            alt="Geneva Disease Dynamics"
+            className="w-full max-w-[160px]"
+          />
+          <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+            Uvira Lab Management
+          </p>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
