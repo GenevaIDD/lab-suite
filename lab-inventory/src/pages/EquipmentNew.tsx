@@ -143,35 +143,34 @@ export function EquipmentNew() {
             <Field id="purchase" label="Date d'achat" type="date" value={form.purchase_date} onChange={(v) => update('purchase_date', v)} />
             <Field id="installed" label="Date d'installation" type="date" value={form.installed_at} onChange={(v) => update('installed_at', v)} />
             <Field id="warranty" label="Garantie expire le" type="date" value={form.warranty_expiry} onChange={(v) => update('warranty_expiry', v)} />
-            <div className="space-y-1">
-              <Label htmlFor="cost">
-                Coût {!admin && <span className="text-xs text-muted-foreground font-normal">(lecture seule)</span>}
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="cost"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.cost}
-                  onChange={(e) => update('cost', e.target.value)}
-                  className="flex-1"
-                  disabled={!admin}
-                />
-                <Select value={form.currency} onValueChange={(v) => update('currency', (v ?? 'USD') as Currency)} disabled={!admin}>
-                  <SelectTrigger className="w-28 shrink-0">
-                    <SelectValue>{(v: string | null) => v ?? 'USD'}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURRENCIES.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        {c.code} <span className="text-muted-foreground">— {c.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {admin && (
+              <div className="space-y-1">
+                <Label htmlFor="cost">Coût</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="cost"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.cost}
+                    onChange={(e) => update('cost', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Select value={form.currency} onValueChange={(v) => update('currency', (v ?? 'USD') as Currency)}>
+                    <SelectTrigger className="w-28 shrink-0">
+                      <SelectValue>{(v: string | null) => v ?? 'USD'}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.code} <span className="text-muted-foreground">— {c.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
