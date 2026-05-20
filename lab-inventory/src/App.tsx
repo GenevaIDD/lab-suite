@@ -7,6 +7,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Equipment } from '@/pages/Equipment'
 import { EquipmentNew } from '@/pages/EquipmentNew'
 import { EquipmentDetail } from '@/pages/EquipmentDetail'
+import { EquipmentEdit } from '@/pages/EquipmentEdit'
 import { EquipmentRetired } from '@/pages/EquipmentRetired'
 import { Inventory } from '@/pages/Inventory'
 import { InventoryNew } from '@/pages/InventoryNew'
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="equipment/new" element={<EquipmentNew />} />
             <Route path="equipment/retired" element={<EquipmentRetired />} />
               <Route path="equipment/:id" element={<EquipmentDetail />} />
+            <Route path="equipment/:id/edit" element={<EquipmentEdit />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="inventory/items/:id" element={<ItemDetail />} />
               <Route path="inventory/items/:id/edit" element={<ItemEdit />} />

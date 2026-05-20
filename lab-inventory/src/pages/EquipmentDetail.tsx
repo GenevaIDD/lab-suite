@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil } from 'lucide-react'
 import { useAuth, isAdmin } from '@/lib/auth'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -74,6 +74,10 @@ export function EquipmentDetail() {
           {equipment.serial_number && (
             <Badge variant="secondary" className="gap-1">SN: {equipment.serial_number}</Badge>
           )}
+          <Link to={`/equipment/${equipment.id}/edit`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+            <Pencil className="h-3.5 w-3.5 mr-1" />
+            Modifier
+          </Link>
           {admin && (
             equipment.retired_at
               ? <UnretireButton equipmentId={equipment.id} />

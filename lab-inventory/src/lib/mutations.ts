@@ -100,6 +100,18 @@ export function useCreateItemSource() {
   })
 }
 
+export function useUpdateEquipment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<Equipment> & { id: string }) =>
+      tryWriteOrQueue<Equipment>('update', 'equipment', payload, id),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['equipment'] })
+      qc.invalidateQueries({ queryKey: ['equipment', vars.id] })
+    },
+  })
+}
+
 export function useRetireEquipment() {
   const qc = useQueryClient()
   return useMutation({
