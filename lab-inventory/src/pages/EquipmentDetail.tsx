@@ -105,7 +105,7 @@ export function EquipmentDetail() {
         <InfoBlock icon={Calendar} label="Date d'achat" value={equipment.purchase_date ? format(parseISO(equipment.purchase_date), 'd MMM yyyy') : null} />
         <InfoBlock icon={Calendar} label="Date d'installation" value={equipment.installed_at ? format(parseISO(equipment.installed_at), 'd MMM yyyy') : null} />
         <InfoBlock icon={Calendar} label="Garantie expire le" value={equipment.warranty_expiry ? format(parseISO(equipment.warranty_expiry), 'd MMM yyyy') : null} />
-        {admin && <InfoBlock icon={Banknote} label="Coût" value={equipment.cost ? `${equipment.cost.toLocaleString()} ${equipment.currency ?? ''}`.trim() : null} />}
+        <InfoBlock icon={Banknote} label="Coût" value={equipment.cost ? `${equipment.cost.toLocaleString()} ${equipment.currency ?? ''}`.trim() : null} />
       </div>
 
       {equipment.notes && (
