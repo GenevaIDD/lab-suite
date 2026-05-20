@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Search, Wrench, AlertTriangle, Clock, Loader2 } from 'lucide-react'
+import { Plus, Search, Wrench, AlertTriangle, Clock, Loader2, ArchiveX } from 'lucide-react'
 import { useEquipmentList, useMaintenanceSchedules } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
@@ -52,6 +52,10 @@ export function Equipment() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <Link to="/equipment/retired" className={cn(buttonVariants({ variant: 'outline' }))}>
+          <ArchiveX className="h-4 w-4 mr-1" />
+          Retirés
+        </Link>
         <Link to="/equipment/new" className={cn(buttonVariants())}>
           <Plus className="h-4 w-4 mr-1" />
           Ajouter équipement

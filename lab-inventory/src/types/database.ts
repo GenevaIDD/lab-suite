@@ -27,10 +27,15 @@ export interface Equipment {
   supplier: string | null
   vendor_contact: string | null
   purchase_date: string | null
+  installed_at: string | null
   warranty_expiry: string | null
   cost: number | null
   currency: Currency | null
   notes: string | null
+  retired_at?: string | null
+  retirement_reason?: string | null
+  retirement_destination?: string | null
+  retirement_recipient?: string | null
   photo_urls: string[]
   created_at: string
   updated_at: string
@@ -137,7 +142,7 @@ export type Database = {
   public: {
     Tables: {
       profiles: { Row: Profile; Insert: Omit<Profile, 'created_at'>; Update: Partial<Profile> }
-      equipment: { Row: Equipment; Insert: Omit<Equipment, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Equipment> }
+      equipment: { Row: Equipment; Insert: Omit<Equipment, 'id' | 'created_at' | 'updated_at' | 'retired_at' | 'retirement_reason' | 'retirement_destination' | 'retirement_recipient'>; Update: Partial<Equipment> }
       maintenance_schedules: { Row: MaintenanceSchedule; Insert: Omit<MaintenanceSchedule, 'id' | 'created_at'>; Update: Partial<MaintenanceSchedule> }
       maintenance_logs: { Row: MaintenanceLog; Insert: Omit<MaintenanceLog, 'id' | 'created_at'>; Update: Partial<MaintenanceLog> }
       item_types: { Row: ItemType; Insert: Omit<ItemType, 'id' | 'created_at' | 'updated_at'>; Update: Partial<ItemType> }

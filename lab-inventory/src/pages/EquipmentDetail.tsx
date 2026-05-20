@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2 } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw } from 'lucide-react'
+import { useAuth, isAdmin } from '@/lib/auth'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,12 +18,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs } from '@/lib/queries'
-import { useLogMaintenance } from '@/lib/mutations'
+import { useLogMaintenance, useRetireEquipment, useUnretireEquipment } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
 
 export function EquipmentDetail() {
+  const { profile } = useAuth()
+  const admin = isAdmin(profile)
   const { id } = useParams()
   const { data: equipment, isLoading, error } = useEquipment(id)
   const { data: schedules = [] } = useMaintenanceSchedules(id)
@@ -55,13 +58,37 @@ export function EquipmentDetail() {
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-semibold">{equipment.name}</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-2xl font-semibold">{equipment.name}</h2>
+            {equipment.retired_at && (
+              <Badge variant="secondary" className="gap-1 text-muted-foreground">
+                <ArchiveX className="h-3 w-3" />
+                Retiré le {format(parseISO(equipment.retired_at), 'd MMM yyyy')}
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground mt-1">{equipment.category}</p>
         </div>
-        {equipment.serial_number && (
-          <Badge variant="secondary" className="gap-1">SN: {equipment.serial_number}</Badge>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {equipment.serial_number && (
+            <Badge variant="secondary" className="gap-1">SN: {equipment.serial_number}</Badge>
+          )}
+          {admin && (
+            equipment.retired_at
+              ? <UnretireButton equipmentId={equipment.id} />
+              : <RetireDialog equipmentId={equipment.id} />
+          )}
+        </div>
       </div>
+
+      {equipment.retired_at && (
+        <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm space-y-1">
+          <p className="font-medium text-muted-foreground">Informations de retrait</p>
+          <p>Destination : <span className="font-medium">{equipment.retirement_destination ?? '—'}</span></p>
+          {equipment.retirement_recipient && <p>Destinataire : <span className="font-medium">{equipment.retirement_recipient}</span></p>}
+          {equipment.retirement_reason && <p>Raison : <span className="font-medium">{equipment.retirement_reason}</span></p>}
+        </div>
+      )}
 
       {equipment.photo_urls.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -75,9 +102,10 @@ export function EquipmentDetail() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <InfoBlock icon={Package} label="Supplier" value={equipment.supplier} />
-        <InfoBlock icon={Calendar} label="Purchased" value={equipment.purchase_date ? format(parseISO(equipment.purchase_date), 'd MMM yyyy') : null} />
-        <InfoBlock icon={Calendar} label="Warranty expires" value={equipment.warranty_expiry ? format(parseISO(equipment.warranty_expiry), 'd MMM yyyy') : null} />
-        <InfoBlock icon={Banknote} label="Cost" value={equipment.cost ? `${equipment.cost.toLocaleString()} ${equipment.currency ?? ''}`.trim() : null} />
+        <InfoBlock icon={Calendar} label="Date d'achat" value={equipment.purchase_date ? format(parseISO(equipment.purchase_date), 'd MMM yyyy') : null} />
+        <InfoBlock icon={Calendar} label="Date d'installation" value={equipment.installed_at ? format(parseISO(equipment.installed_at), 'd MMM yyyy') : null} />
+        <InfoBlock icon={Calendar} label="Garantie expire le" value={equipment.warranty_expiry ? format(parseISO(equipment.warranty_expiry), 'd MMM yyyy') : null} />
+        {admin && <InfoBlock icon={Banknote} label="Coût" value={equipment.cost ? `${equipment.cost.toLocaleString()} ${equipment.currency ?? ''}`.trim() : null} />}
       </div>
 
       {equipment.notes && (
@@ -255,5 +283,75 @@ function LogMaintenanceDialog({ schedule }: { schedule: MaintenanceSchedule }) {
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function RetireDialog({ equipmentId }: { equipmentId: string }) {
+  const [open, setOpen] = useState(false)
+  const [retiredAt, setRetiredAt] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [reason, setReason] = useState('')
+  const [destination, setDestination] = useState('')
+  const [recipient, setRecipient] = useState('')
+  const retire = useRetireEquipment()
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!destination) { toast.error('La destination est requise'); return }
+    try {
+      await retire.mutateAsync({ id: equipmentId, retired_at: retiredAt, retirement_reason: reason, retirement_destination: destination, retirement_recipient: recipient })
+      toast.success('Équipement retiré')
+      setOpen(false)
+    } catch (err) { toast.error(`Erreur : ${(err as Error).message}`) }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10"><ArchiveX className="h-4 w-4 mr-1" />Retirer</Button>} />
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader><DialogTitle>Retirer cet équipement</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-3">
+            <div className="space-y-1">
+              <Label htmlFor="ret-at">Date de retrait</Label>
+              <Input id="ret-at" type="date" value={retiredAt} onChange={e => setRetiredAt(e.target.value)} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ret-dest">Destination * <span className="text-xs text-muted-foreground font-normal">(ex: mise au rebut, don, transfert)</span></Label>
+              <Input id="ret-dest" value={destination} onChange={e => setDestination(e.target.value)} required placeholder="Décrivez ce qu'il advient de l'équipement" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ret-rec">Destinataire / lieu</Label>
+              <Input id="ret-rec" value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="Nom, organisation ou lieu (optionnel)" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ret-reason">Raison</Label>
+              <Textarea id="ret-reason" value={reason} onChange={e => setReason(e.target.value)} rows={2} placeholder="Panne, obsolescence, remplacement… (optionnel)" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+            <Button type="submit" variant="destructive" disabled={!destination || retire.isPending}>
+              {retire.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Confirmer le retrait
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function UnretireButton({ equipmentId }: { equipmentId: string }) {
+  const unretire = useUnretireEquipment()
+  async function handle() {
+    try {
+      await unretire.mutateAsync(equipmentId)
+      toast.success('Équipement remis en service')
+    } catch (err) { toast.error(`Erreur : ${(err as Error).message}`) }
+  }
+  return (
+    <Button variant="outline" size="sm" onClick={handle} disabled={unretire.isPending}>
+      {unretire.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1" />}
+      Remettre en service
+    </Button>
   )
 }

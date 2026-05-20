@@ -100,6 +100,44 @@ export function useCreateItemSource() {
   })
 }
 
+export function useRetireEquipment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { id: string; retired_at: string; retirement_reason: string; retirement_destination: string; retirement_recipient: string }) =>
+      tryWriteOrQueue('update', 'equipment', {
+        retired_at: payload.retired_at,
+        retirement_reason: payload.retirement_reason,
+        retirement_destination: payload.retirement_destination,
+        retirement_recipient: payload.retirement_recipient,
+      }, payload.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment'] }),
+  })
+}
+
+export function useUnretireEquipment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      tryWriteOrQueue('update', 'equipment', {
+        retired_at: null, retirement_reason: null,
+        retirement_destination: null, retirement_recipient: null,
+      }, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment'] }),
+  })
+}
+
+export function useUpdateItemType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<ItemType> & { id: string }) =>
+      tryWriteOrQueue<ItemType>('update', 'item_types', payload, id),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['item_types'] })
+      qc.invalidateQueries({ queryKey: ['item_types', vars.id] })
+    },
+  })
+}
+
 export function useCreateDelivery() {
   const qc = useQueryClient()
   return useMutation({

@@ -7,12 +7,14 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Equipment } from '@/pages/Equipment'
 import { EquipmentNew } from '@/pages/EquipmentNew'
 import { EquipmentDetail } from '@/pages/EquipmentDetail'
+import { EquipmentRetired } from '@/pages/EquipmentRetired'
 import { Inventory } from '@/pages/Inventory'
 import { InventoryNew } from '@/pages/InventoryNew'
 import { DeliveryNew } from '@/pages/DeliveryNew'
 import { Users } from '@/pages/Users'
 import { StockCountNew } from '@/pages/StockCountNew'
 import { ItemDetail } from '@/pages/inventory/ItemDetail'
+import { ItemEdit } from '@/pages/inventory/ItemEdit'
 import { SessionStart } from '@/pages/inventory/SessionStart'
 import { SessionEntry } from '@/pages/inventory/SessionEntry'
 import { SessionPrint } from '@/pages/inventory/SessionPrint'
@@ -75,9 +77,11 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="equipment" element={<Equipment />} />
               <Route path="equipment/new" element={<EquipmentNew />} />
+            <Route path="equipment/retired" element={<EquipmentRetired />} />
               <Route path="equipment/:id" element={<EquipmentDetail />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="inventory/items/:id" element={<ItemDetail />} />
+              <Route path="inventory/items/:id/edit" element={<ItemEdit />} />
               <Route path="inventory/new" element={<InventoryNew />} />
               <Route path="inventory/delivery/new" element={<DeliveryNew />} />
               <Route path="inventory/stock-count" element={<StockCountNew />} />

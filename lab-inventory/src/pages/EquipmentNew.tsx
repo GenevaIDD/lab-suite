@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth, isAdmin } from '@/lib/auth'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -28,6 +29,7 @@ interface FormState {
   supplier: string
   vendor_contact: string
   purchase_date: string
+  installed_at: string
   warranty_expiry: string
   cost: string
   currency: Currency
@@ -42,6 +44,7 @@ const initialForm: FormState = {
   supplier: '',
   vendor_contact: '',
   purchase_date: '',
+  installed_at: '',
   warranty_expiry: '',
   cost: '',
   currency: 'USD',
@@ -50,6 +53,8 @@ const initialForm: FormState = {
 }
 
 export function EquipmentNew() {
+  const { profile } = useAuth()
+  const admin = isAdmin(profile)
   const navigate = useNavigate()
   const createEquipment = useCreateEquipment()
   const createSchedule = useCreateMaintenanceSchedule()
@@ -76,6 +81,7 @@ export function EquipmentNew() {
         supplier: form.supplier || null,
         vendor_contact: form.vendor_contact || null,
         purchase_date: form.purchase_date || null,
+        installed_at: form.installed_at || null,
         warranty_expiry: form.warranty_expiry || null,
         cost: form.cost ? Number(form.cost) : null,
         currency: form.cost ? form.currency : null,
@@ -134,34 +140,37 @@ export function EquipmentNew() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="supplier" label="Supplier / vendor" value={form.supplier} onChange={(v) => update('supplier', v)} />
             <Field id="contact" label="Vendor contact" value={form.vendor_contact} onChange={(v) => update('vendor_contact', v)} placeholder="email or phone" />
-            <Field id="purchase" label="Purchase date" type="date" value={form.purchase_date} onChange={(v) => update('purchase_date', v)} />
-            <Field id="warranty" label="Warranty expires" type="date" value={form.warranty_expiry} onChange={(v) => update('warranty_expiry', v)} />
-            <div className="space-y-1">
-              <Label htmlFor="cost">Cost</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="cost"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.cost}
-                  onChange={(e) => update('cost', e.target.value)}
-                  className="flex-1"
-                />
-                <Select value={form.currency} onValueChange={(v) => update('currency', (v ?? 'USD') as Currency)}>
-                  <SelectTrigger className="w-28 shrink-0">
-                    <SelectValue>{(v: string | null) => v ?? 'USD'}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURRENCIES.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        {c.code} <span className="text-muted-foreground">— {c.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <Field id="purchase" label="Date d'achat" type="date" value={form.purchase_date} onChange={(v) => update('purchase_date', v)} />
+            <Field id="installed" label="Date d'installation" type="date" value={form.installed_at} onChange={(v) => update('installed_at', v)} />
+            <Field id="warranty" label="Garantie expire le" type="date" value={form.warranty_expiry} onChange={(v) => update('warranty_expiry', v)} />
+            {admin && (
+              <div className="space-y-1">
+                <Label htmlFor="cost">Coût</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="cost"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.cost}
+                    onChange={(e) => update('cost', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Select value={form.currency} onValueChange={(v) => update('currency', (v ?? 'USD') as Currency)}>
+                    <SelectTrigger className="w-28 shrink-0">
+                      <SelectValue>{(v: string | null) => v ?? 'USD'}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.code} <span className="text-muted-foreground">— {c.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>

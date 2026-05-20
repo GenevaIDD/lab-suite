@@ -2,14 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry } from '@/types/database'
 
-export function useEquipmentList() {
+export function useEquipmentList(includeRetired = false) {
   return useQuery({
-    queryKey: ['equipment'],
+    queryKey: ['equipment', includeRetired],
     queryFn: async (): Promise<Equipment[]> => {
-      const { data, error } = await supabase
-        .from('equipment')
-        .select('*')
-        .order('name')
+      let q = supabase.from('equipment').select('*').order('name')
+      if (!includeRetired) q = q.is('retired_at', null)
+      const { data, error } = await q
       if (error) throw error
       return data ?? []
     },
