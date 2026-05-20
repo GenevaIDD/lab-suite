@@ -138,6 +138,17 @@ export interface InventorySessionEntry {
   item_type?: ItemType
 }
 
+export interface EquipmentDocument {
+  id: string
+  equipment_id: string
+  description: string
+  file_url: string
+  file_name: string
+  file_size_bytes: number | null
+  uploaded_at: string
+  uploaded_by: string | null
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -149,6 +160,7 @@ export type Database = {
       item_sources: { Row: ItemSource; Insert: Omit<ItemSource, 'id' | 'created_at'>; Update: Partial<ItemSource> }
       stock_counts: { Row: StockCount; Insert: Omit<StockCount, 'id' | 'created_at'>; Update: Partial<StockCount> }
       deliveries: { Row: Delivery; Insert: Omit<Delivery, 'id' | 'created_at'>; Update: Partial<Delivery> }
+      equipment_documents: { Row: EquipmentDocument; Insert: Omit<EquipmentDocument, 'id' | 'uploaded_at'>; Update: Partial<EquipmentDocument> }
       inventory_sessions: { Row: InventorySession; Insert: Omit<InventorySession, 'id' | 'created_at'>; Update: Partial<InventorySession> }
       inventory_session_entries: { Row: InventorySessionEntry; Insert: Omit<InventorySessionEntry, 'id' | 'created_at'>; Update: Partial<InventorySessionEntry> }
     }

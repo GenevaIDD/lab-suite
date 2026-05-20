@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument } from '@/types/database'
 
 export function useEquipmentList(includeRetired = false) {
   return useQuery({
@@ -118,6 +118,22 @@ export function useItemTypes() {
         .order('name')
       if (error) throw error
       return data ?? []
+    },
+  })
+}
+
+export function useEquipmentDocuments(equipmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['equipment_documents', equipmentId],
+    enabled: !!equipmentId,
+    queryFn: async (): Promise<EquipmentDocument[]> => {
+      const { data, error } = await db
+        .from('equipment_documents')
+        .select('*')
+        .eq('equipment_id', equipmentId!)
+        .order('uploaded_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as EquipmentDocument[]
     },
   })
 }

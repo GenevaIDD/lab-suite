@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs } from '@/lib/queries'
+import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
 import { useLogMaintenance, useRetireEquipment, useUnretireEquipment } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -107,6 +108,13 @@ export function EquipmentDetail() {
         <InfoBlock icon={Calendar} label="Garantie expire le" value={equipment.warranty_expiry ? format(parseISO(equipment.warranty_expiry), 'd MMM yyyy') : null} />
         {admin && <InfoBlock icon={Banknote} label="Coût" value={equipment.cost ? `${equipment.cost.toLocaleString()} ${equipment.currency ?? ''}`.trim() : null} />}
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Documents</CardTitle></CardHeader>
+        <CardContent>
+          <EquipmentDocumentList equipmentId={equipment.id} />
+        </CardContent>
+      </Card>
 
       {equipment.notes && (
         <Card>

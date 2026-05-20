@@ -325,10 +325,36 @@ create policy "admin+lab_manager+tech write entries" on inventory_session_entrie
   );
 
 -- ============================================================
+-- Equipment Documents
+-- ============================================================
+
+create table equipment_documents (
+  id              uuid primary key default uuid_generate_v4(),
+  equipment_id    uuid not null references equipment(id) on delete cascade,
+  description     text not null,
+  file_url        text not null,
+  file_name       text not null,
+  file_size_bytes bigint,
+  uploaded_at     timestamptz not null default now(),
+  uploaded_by     text
+);
+
+create index ed_equipment_idx on equipment_documents(equipment_id);
+
+alter table equipment_documents enable row level security;
+create policy "authenticated read docs"         on equipment_documents for select using (auth.role() = 'authenticated');
+create policy "admin+lab_manager write docs"    on equipment_documents for all using (
+  exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+);
+
+-- ============================================================
 -- Storage bucket for equipment photos
 -- ============================================================
 
 insert into storage.buckets (id, name, public) values ('equipment-photos', 'equipment-photos', false)
+  on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public) values ('equipment-documents', 'equipment-documents', false)
   on conflict (id) do nothing;
 
 -- ============================================================
@@ -345,9 +371,17 @@ grant select on all tables in schema public to anon;
 
 drop policy if exists "authenticated upload photos" on storage.objects;
 drop policy if exists "authenticated read photos" on storage.objects;
+drop policy if exists "authenticated upload docs" on storage.objects;
+drop policy if exists "authenticated read docs storage" on storage.objects;
 
 create policy "authenticated upload photos" on storage.objects
   for insert with check (bucket_id = 'equipment-photos' and auth.role() = 'authenticated');
 
 create policy "authenticated read photos" on storage.objects
   for select using (bucket_id = 'equipment-photos' and auth.role() = 'authenticated');
+
+create policy "authenticated upload docs" on storage.objects
+  for insert with check (bucket_id = 'equipment-documents' and auth.role() = 'authenticated');
+
+create policy "authenticated read docs storage" on storage.objects
+  for select using (bucket_id = 'equipment-documents' and auth.role() = 'authenticated');

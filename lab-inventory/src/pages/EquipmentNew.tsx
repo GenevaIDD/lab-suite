@@ -16,6 +16,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PhotoUpload } from '@/components/equipment/PhotoUpload'
 import { MaintenanceScheduleEditor, type ScheduleDraft } from '@/components/equipment/MaintenanceScheduleEditor'
+import { DocumentDraftList, type DocumentDraft } from '@/components/equipment/DocumentUpload'
+import { uploadEquipmentDocument, useAddEquipmentDocument } from '@/lib/mutations'
 import { useCreateEquipment, useCreateMaintenanceSchedule } from '@/lib/mutations'
 import { toast } from 'sonner'
 import type { Currency } from '@/types/database'
@@ -61,6 +63,8 @@ export function EquipmentNew() {
 
   const [form, setForm] = useState<FormState>(initialForm)
   const [schedules, setSchedules] = useState<ScheduleDraft[]>([])
+  const [docDrafts, setDocDrafts] = useState<DocumentDraft[]>([])
+  const addDoc = useAddEquipmentDocument()
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -103,7 +107,21 @@ export function EquipmentNew() {
         )
       }
 
-      toast.success(equipment ? 'Equipment registered' : 'Saved offline — will sync when online')
+      // Upload any pending documents
+      if (equipment?.id && docDrafts.length > 0) {
+        await Promise.allSettled(docDrafts.map(async d => {
+          const result = await uploadEquipmentDocument(d.file)
+          if (result) await addDoc.mutateAsync({
+            equipment_id: equipment.id,
+            description: d.description,
+            file_url: result.url,
+            file_name: result.name,
+            file_size_bytes: result.size,
+            uploaded_by: null,
+          })
+        }))
+      }
+      toast.success(equipment ? 'Équipement enregistré' : 'Sauvegardé hors ligne')
       navigate('/equipment')
     } catch (err) {
       toast.error(`Save failed: ${(err as Error).message}`)
@@ -186,7 +204,16 @@ export function EquipmentNew() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Maintenance schedules</CardTitle>
+          <CardTitle className="text-base">Documents</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DocumentDraftList drafts={docDrafts} onChange={setDocDrafts} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Planning de maintenance</CardTitle>
         </CardHeader>
         <CardContent>
           <MaintenanceScheduleEditor schedules={schedules} onChange={setSchedules} />

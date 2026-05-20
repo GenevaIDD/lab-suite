@@ -325,6 +325,42 @@ export function useCompleteSession() {
   })
 }
 
+export async function uploadEquipmentDocument(file: File): Promise<{ url: string; name: string; size: number } | null> {
+  if (!navigator.onLine) return null
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const path = `${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('equipment-documents').upload(path, file)
+  if (error) throw error
+  const { data } = supabase.storage.from('equipment-documents').getPublicUrl(path)
+  return { url: data.publicUrl, name: file.name, size: file.size }
+}
+
+type DocPayload = { equipment_id: string; description: string; file_url: string; file_name: string; file_size_bytes: number | null; uploaded_by: string | null }
+
+export function useAddEquipmentDocument() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, DocPayload>({
+    mutationFn: async (payload: DocPayload) => {
+      const { data, error } = await db.from('equipment_documents').insert(payload).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data: unknown, vars: { equipment_id: string }) => qc.invalidateQueries({ queryKey: ['equipment_documents', vars.equipment_id] }),
+  })
+}
+
+export function useDeleteEquipmentDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, equipmentId }: { id: string; equipmentId: string }) => {
+      const { error } = await db.from('equipment_documents').delete().eq('id', id)
+      if (error) throw error
+      return equipmentId
+    },
+    onSuccess: (_data: unknown, vars: { id: string; equipmentId: string }) => qc.invalidateQueries({ queryKey: ['equipment_documents', vars.equipmentId] }),
+  })
+}
+
 export async function uploadEquipmentPhoto(file: File): Promise<string | null> {
   if (!navigator.onLine) return null
   const ext = file.name.split('.').pop() ?? 'jpg'
