@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { qtyStep } from '@/lib/utils'
 import { useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
@@ -106,7 +107,7 @@ export function StockCountNew() {
                 id="qty"
                 type="number"
                 min={0}
-                step="0.01"
+                step={qtyStep(selectedItem?.unit)}
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 required

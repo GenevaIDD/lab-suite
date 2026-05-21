@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useSession, useSessionEntries } from '@/lib/queries'
 import { useUpdateEntry, usePauseSession, useCompleteSession } from '@/lib/mutations'
+import { qtyStep } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -64,7 +65,7 @@ export function SessionEntry() {
   async function saveCurrentAndAdvance(skip = false) {
     if (!current || !id) return
     if (!skip && value === '') {
-      toast.error('Enter a quantity or skip this item')
+      toast.error('Saisissez une quantité ou passez cet article')
       return
     }
     try {
@@ -78,10 +79,10 @@ export function SessionEntry() {
       if (currentIdx < entries.length - 1) {
         setCurrentIdx((i) => i + 1)
       } else {
-        toast.success('All items reached — review and complete the session.')
+        toast.success('Tous les articles atteints — vérifiez et terminez la session.')
       }
     } catch (err) {
-      toast.error(`Save failed: ${(err as Error).message}`)
+      toast.error(`Erreur : ${(err as Error).message}`)
     }
   }
 
@@ -89,10 +90,10 @@ export function SessionEntry() {
     if (!id) return
     try {
       await pauseSession.mutateAsync(id)
-      toast.success('Session paused — you can resume from the Inventory page.')
+      toast.success('Session en pause — reprenez depuis la page Inventaire.')
       navigate('/inventory')
     } catch (err) {
-      toast.error(`Pause failed: ${(err as Error).message}`)
+      toast.error(`Erreur lors de la pause : ${(err as Error).message}`)
     }
   }
 
@@ -109,7 +110,7 @@ export function SessionEntry() {
           notes: e.notes,
         })),
       })
-      toast.success('Inventory complete!')
+      toast.success('Inventaire terminé !')
       navigate(`/inventory/session/${id}/summary`)
     } catch (err) {
       toast.error(`Failed: ${(err as Error).message}`)
@@ -136,7 +137,7 @@ export function SessionEntry() {
     return (
       <div className="text-center py-20 text-muted-foreground text-sm">
         Session not found.{' '}
-        <Link to="/inventory" className="underline">Back to Inventory</Link>
+        <Link to="/inventory" className="underline">Retour à l'inventaire</Link>
       </div>
     )
   }
@@ -145,9 +146,9 @@ export function SessionEntry() {
     return (
       <div className="text-center py-20 space-y-3">
         <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" />
-        <p className="font-medium">This session is complete.</p>
+        <p className="font-medium">Cette session est terminée.</p>
         <Link to={`/inventory/session/${id}/summary`} className={cn(buttonVariants({ variant: 'outline' }))}>
-          View reconciliation summary
+          Voir le rapport de réconciliation
         </Link>
       </div>
     )
@@ -159,14 +160,14 @@ export function SessionEntry() {
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-xs text-muted-foreground">
-            Count date: {format(parseISO(session.target_date), 'd MMM yyyy')}
+            Date de comptage : {format(parseISO(session.target_date), 'd MMM yyyy')}
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             <Badge variant="secondary" className="text-xs">
-              {entered}/{entries.length} entered
+              {entered}/{entries.length} saisis
             </Badge>
             {skipped > 0 && (
-              <Badge variant="outline" className="text-xs">{skipped} skipped</Badge>
+              <Badge variant="outline" className="text-xs">{skipped} passé{skipped > 1 ? 's' : ''}</Badge>
             )}
           </div>
         </div>
@@ -177,13 +178,13 @@ export function SessionEntry() {
             className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
           >
             <Printer className="h-4 w-4 mr-1" />
-            Print sheet
+            Imprimer
           </Link>
           <Button
             variant="outline"
             size="icon"
             onClick={() => setShowList(!showList)}
-            title="View all items"
+            title="Voir tous les articles"
           >
             <List className="h-4 w-4" />
           </Button>
@@ -221,7 +222,7 @@ export function SessionEntry() {
                       {entry.counted_quantity} {entry.item_type?.unit}
                     </Badge>
                   ) : idx === currentIdx ? (
-                    <Badge className="text-xs bg-primary">Current</Badge>
+                    <Badge className="text-xs bg-primary">En cours</Badge>
                   ) : (
                     <span className="text-muted-foreground text-xs">—</span>
                   )}
@@ -253,7 +254,7 @@ export function SessionEntry() {
                 id="qty"
                 type="number"
                 min={0}
-                step="0.01"
+                step={qtyStep(current?.item_type?.unit)}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -284,7 +285,7 @@ export function SessionEntry() {
                 disabled={updateEntry.isPending}
               >
                 <SkipForward className="h-4 w-4 mr-1" />
-                Skip
+                Passer
               </Button>
               <Button
                 className="flex-2"
@@ -294,7 +295,7 @@ export function SessionEntry() {
                 {updateEntry.isPending
                   ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                   : <ArrowRight className="h-4 w-4 mr-1" />}
-                Save & next
+                Enregistrer & suivant
               </Button>
             </div>
           </CardContent>
@@ -310,7 +311,7 @@ export function SessionEntry() {
             disabled={currentIdx === 0}
             onClick={() => setCurrentIdx((i) => i - 1)}
           >
-            <ArrowLeft className="h-3 w-3" /> Previous
+            <ArrowLeft className="h-3 w-3" /> Précédent
           </button>
           <button
             type="button"
@@ -318,7 +319,7 @@ export function SessionEntry() {
             disabled={currentIdx === entries.length - 1}
             onClick={() => setCurrentIdx((i) => i + 1)}
           >
-            Next <ArrowRight className="h-3 w-3" />
+            Suivant <ArrowRight className="h-3 w-3" />
           </button>
         </div>
       )}
@@ -329,7 +330,7 @@ export function SessionEntry() {
           to="/inventory/new"
           className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
         >
-          Item not in list? Add it →
+          Article absent ? Ajouter →
         </Link>
       </div>
 
@@ -344,7 +345,7 @@ export function SessionEntry() {
           {pauseSession.isPending
             ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             : <Pause className="h-4 w-4 mr-1" />}
-          Pause
+          Pause session
         </Button>
         <CompleteDialog
           enteredCount={entered}
@@ -378,33 +379,33 @@ function CompleteDialog({
         render={
           <Button className="flex-1" variant={allEntered ? 'default' : 'outline'}>
             <CheckCircle2 className="h-4 w-4 mr-1" />
-            Complete
+            Terminer
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Complete inventory session?</DialogTitle>
+          <DialogTitle>Terminer la session d'inventaire ?</DialogTitle>
         </DialogHeader>
         <div className="py-2 text-sm space-y-2">
           <p>
-            <span className="font-medium">{enteredCount}</span> of{' '}
-            <span className="font-medium">{totalCount}</span> items have been counted.
+            <span className="font-medium">{enteredCount}</span> sur{' '}
+            <span className="font-medium">{totalCount}</span> articles ont été comptés.
           </p>
           {!allEntered && (
             <p className="text-amber-600">
-              {totalCount - enteredCount} items were skipped and will not update stock.
+              {totalCount - enteredCount} article{totalCount - enteredCount > 1 ? 's' : ''} passé{totalCount - enteredCount > 1 ? 's' : ''} — le stock ne sera pas mis à jour pour ceux-ci.
             </p>
           )}
           <p className="text-muted-foreground">
-            This will create stock count records for all entered values and show a reconciliation report.
+            Les valeurs saisies seront enregistrées comme comptages de stock et un rapport de réconciliation s'affichera.
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
           <Button onClick={() => { onConfirm(); setOpen(false) }} disabled={isPending}>
             {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-            Complete session
+            Confirmer
           </Button>
         </DialogFooter>
       </DialogContent>

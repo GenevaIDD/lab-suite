@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { qtyStep } from '@/lib/utils'
 import { useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ArrowLeft, Save, Loader2, Plus } from 'lucide-react'
@@ -137,7 +138,7 @@ export function DeliveryNew() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="qty">Quantité * {selectedItem && <span className="text-muted-foreground font-normal">({selectedItem.unit})</span>}</Label>
-              <Input id="qty" type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+              <Input id="qty" type="number" min={0} step={qtyStep(selectedItem?.unit)} value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
             </div>
             <div className="space-y-1">
               <Label htmlFor="lot">Numéro de lot</Label>
