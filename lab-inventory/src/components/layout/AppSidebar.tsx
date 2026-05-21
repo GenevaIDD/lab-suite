@@ -70,7 +70,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t px-4 py-3">
-        <p className="text-xs text-muted-foreground">Uvira, DRC · INRB Lab</p>
+        <p className="text-xs text-muted-foreground">Uvira, DRC</p>
       </SidebarFooter>
     </Sidebar>
   )
