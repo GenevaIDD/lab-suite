@@ -14,7 +14,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Search, Package, Loader2, ClipboardList, Play } from 'lucide-react'
+import { Plus, Search, Package, Loader2, ClipboardList, Play, ArrowUpDown } from 'lucide-react'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { useItemTypes, useDeliveries, useCurrentStock, useActiveSession } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
@@ -28,9 +31,12 @@ interface StockRow {
   last_counted_at: string
 }
 
+type SortKey = 'name' | 'category' | 'status' | 'last_counted'
+
 export function Inventory() {
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'items' | 'deliveries'>('items')
+  const [sortBy, setSortBy] = useState<SortKey>('name')
 
   const { data: itemTypes = [], isLoading: loadingItems, error: itemsError } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
@@ -39,17 +45,33 @@ export function Inventory() {
 
   const itemRows = useMemo(() => {
     const q = search.toLowerCase()
-    const byItem = new Map<string, number>()
+    const byItem = new Map<string, { qty: number; last_counted_at?: string }>()
     for (const row of stockRows) {
-      byItem.set(row.item_type_id, Number(row.quantity))
+      byItem.set(row.item_type_id, {
+        qty: Number(row.quantity),
+        last_counted_at: (row as StockRow & { last_counted_at?: string }).last_counted_at,
+      })
     }
-    return itemTypes
+    const rows = itemTypes
       .filter((i) => !q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q))
       .map((i) => {
-        const quantity = byItem.get(i.id) ?? 0
-        return { ...i, quantity, low: quantity < i.min_threshold }
+        const stock = byItem.get(i.id)
+        const quantity = stock?.qty ?? 0
+        return { ...i, quantity, low: quantity < i.min_threshold, last_counted_at: stock?.last_counted_at }
       })
-  }, [itemTypes, stockRows, search])
+
+    rows.sort((a, b) => {
+      if (sortBy === 'category')     return a.category.localeCompare(b.category) || a.name.localeCompare(b.name)
+      if (sortBy === 'status')       return (b.low ? 1 : 0) - (a.low ? 1 : 0) || a.name.localeCompare(b.name)
+      if (sortBy === 'last_counted') {
+        const da = a.last_counted_at ?? ''
+        const db = b.last_counted_at ?? ''
+        return da.localeCompare(db) // oldest first (never counted = empty string → top)
+      }
+      return a.name.localeCompare(b.name) // default alphabetical
+    })
+    return rows
+  }, [itemTypes, stockRows, search, sortBy])
 
   const deliveryRows = useMemo(() => {
     const q = search.toLowerCase()
@@ -66,7 +88,7 @@ export function Inventory() {
           <div className="flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-primary shrink-0" />
             <span className="text-sm font-medium">
-              {activeSession.status === 'paused' ? 'Inventory session paused' : 'Inventory session in progress'}
+              {activeSession.status === 'paused' ? 'Session d\'inventaire en pause' : 'Session d\'inventaire en cours'}
             </span>
           </div>
           <Link
@@ -74,20 +96,36 @@ export function Inventory() {
             className={cn(buttonVariants({ size: 'sm' }))}
           >
             <Play className="h-3.5 w-3.5 mr-1" />
-            {activeSession.status === 'paused' ? 'Resume' : 'Continue'}
+            {activeSession.status === 'paused' ? 'Reprendre' : 'Continuer'}
           </Link>
         </div>
       )}
 
       <div className="flex items-center justify-between gap-4 flex-wrap gap-y-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={tab === 'items' ? 'Rechercher un article...' : 'Rechercher une livraison...'}
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-2 flex-1 max-w-lg">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={tab === 'items' ? 'Rechercher un article...' : 'Rechercher une livraison...'}
+              className="pl-8"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {tab === 'items' && (
+            <Select value={sortBy} onValueChange={(v) => setSortBy((v ?? 'name') as SortKey)}>
+              <SelectTrigger className="w-44 shrink-0">
+                <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nom (A–Z)</SelectItem>
+                <SelectItem value="category">Catégorie</SelectItem>
+                <SelectItem value="status">Statut (stock faible d'abord)</SelectItem>
+                <SelectItem value="last_counted">Dernier comptage (ancien d'abord)</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
         <div className="flex gap-2 flex-wrap">
           {!activeSession && (

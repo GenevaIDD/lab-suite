@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ItemCombobox } from '@/components/ui/ItemCombobox'
 import { useItemTypes, useItemSources } from '@/lib/queries'
 import { useCreateDelivery, useCreateItemSource } from '@/lib/mutations'
 import { toast } from 'sonner'
@@ -84,24 +85,14 @@ export function DeliveryNew() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="item">Item *</Label>
-            <Select value={itemTypeId} onValueChange={(v) => { setItemTypeId(v ?? ''); setItemSourceId('') }}>
-              <SelectTrigger id="item">
-                <SelectValue placeholder={loadingTypes ? 'Chargement…' : 'Sélectionner un article'}>
-                  {(v: string | null) => {
-                    const item = itemTypes.find((i) => i.id === v)
-                    return item ? `${item.name} (${item.unit})` : ''
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false} className="min-w-[min(90vw,520px)]">
-                {itemTypes.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.name} <span className="text-muted-foreground">({i.unit})</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="item">Article *</Label>
+            <ItemCombobox
+              id="item"
+              items={itemTypes}
+              value={itemTypeId}
+              onChange={(id) => { setItemTypeId(id); setItemSourceId('') }}
+              loading={loadingTypes}
+            />
             {!loadingTypes && itemTypes.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 Aucun article enregistré. <Link to="/inventory/new" className="underline">Ajouter d'abord</Link>.

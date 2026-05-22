@@ -8,14 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ItemCombobox } from '@/components/ui/ItemCombobox'
 import { useItemTypes, useCurrentStock } from '@/lib/queries'
 import { useCreateStockCount } from '@/lib/mutations'
 import { toast } from 'sonner'
@@ -77,24 +71,19 @@ export function StockCountNew() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="item">Item *</Label>
-            <Select value={itemTypeId} onValueChange={(v) => { setItemTypeId(v ?? ''); setQuantity('') }}>
-              <SelectTrigger id="item">
-                <SelectValue placeholder={isLoading ? 'Loading…' : 'Select an item'} />
-              </SelectTrigger>
-              <SelectContent>
-                {itemTypes.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="item">Article *</Label>
+            <ItemCombobox
+              id="item"
+              items={itemTypes}
+              value={itemTypeId}
+              onChange={(id) => { setItemTypeId(id); setQuantity('') }}
+              loading={isLoading}
+            />
           </div>
 
           {itemTypeId && currentQty !== undefined && (
             <p className="text-xs text-muted-foreground rounded-md border bg-muted/30 px-3 py-2">
-              Current stock (before this count): <span className="font-medium">{currentQty} {selectedItem?.unit}</span>
+              Stock actuel (avant ce comptage) : <span className="font-medium">{currentQty} {selectedItem?.unit}</span>
             </p>
           )}
 
