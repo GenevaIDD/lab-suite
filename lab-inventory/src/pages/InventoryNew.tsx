@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,9 +9,49 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SelectOrNew } from '@/components/ui/SelectOrNew'
 import { SourceEditor, type SourceDraft } from '@/components/inventory/SourceEditor'
 import { useCreateItemType, useCreateItemSource } from '@/lib/mutations'
-import { useDistinctCategories, useDistinctUnits } from '@/lib/queries'
+import { useDistinctCategories, useDistinctUnits, useItemTypes } from '@/lib/queries'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import type { ItemType } from '@/types/database'
+
+// ── Similarity helpers ────────────────────────────────────────
+
+/** Normalize: lowercase, strip accents + special chars → space, collapse spaces */
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // strip combining marks (é→e, ç→c)
+    .replace(/[µμ]/g, 'u')             // µL → uL
+    .replace(/[^a-z0-9]+/g, ' ')       // non-alphanumeric → space
+    .trim()
+}
+
+/** Significant tokens: words ≥ 3 chars (skip "de", "le", "la", etc.) */
+const STOP = new Set(['de', 'du', 'le', 'la', 'les', 'un', 'une', 'et', 'ou', 'en', 'for', 'the', 'and'])
+function tokens(s: string): Set<string> {
+  return new Set(normalize(s).split(' ').filter(t => t.length >= 3 && !STOP.has(t)))
+}
+
+function isSimilar(query: string, candidate: string): boolean {
+  if (query.length < 3) return false
+  const nq = normalize(query)
+  const nc = normalize(candidate)
+  // Exact or substring match
+  if (nc.includes(nq) || nq.includes(nc)) return true
+  // Shared significant tokens (≥1 overlap)
+  const tq = tokens(query)
+  const tc = tokens(candidate)
+  for (const t of tq) { if (tc.has(t)) return true }
+  return false
+}
+
+function findSimilar(name: string, items: ItemType[]): ItemType[] {
+  if (name.length < 3) return []
+  return items.filter(it => isSimilar(name, it.name)).slice(0, 5)
+}
+
+// ── Component ─────────────────────────────────────────────────
 
 export function InventoryNew() {
   const navigate = useNavigate()
@@ -19,19 +59,32 @@ export function InventoryNew() {
   const createSource = useCreateItemSource()
 
   const { data: categories = [] } = useDistinctCategories()
-  const { data: units = [] } = useDistinctUnits()
+  const { data: units = [] }      = useDistinctUnits()
+  const { data: allItems = [] }   = useItemTypes()
 
-  const [name, setName] = useState('')
-  const [category, setCategory] = useState('')
-  const [unit, setUnit] = useState('')
+  const [name, setName]               = useState('')
+  const [category, setCategory]       = useState('')
+  const [unit, setUnit]               = useState('')
   const [minThreshold, setMinThreshold] = useState('0')
-  const [notes, setNotes] = useState('')
-  const [sources, setSources] = useState<SourceDraft[]>([])
+  const [notes, setNotes]             = useState('')
+  const [sources, setSources]         = useState<SourceDraft[]>([])
+  const [dismissed, setDismissed]     = useState(false)
+
+  // Reset dismissed when name changes significantly
+  function handleNameChange(v: string) {
+    setName(v)
+    setDismissed(false)
+  }
+
+  const similar = useMemo(
+    () => dismissed ? [] : findSimilar(name, allItems),
+    [name, allItems, dismissed],
+  )
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name || !category || !unit) {
-      toast.error('Name, category, and unit are required')
+      toast.error('Nom, catégorie et unité sont requis')
       return
     }
     try {
@@ -55,10 +108,10 @@ export function InventoryNew() {
           ),
         )
       }
-      toast.success(item ? 'Item created' : 'Saved offline — will sync when online')
+      toast.success(item ? 'Article créé' : 'Sauvegardé hors ligne')
       navigate('/inventory')
     } catch (err) {
-      toast.error(`Save failed: ${(err as Error).message}`)
+      toast.error(`Erreur : ${(err as Error).message}`)
     }
   }
 
@@ -68,7 +121,7 @@ export function InventoryNew() {
     <form onSubmit={onSubmit} className="space-y-6 max-w-3xl">
       <Link to="/inventory" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Back to Inventory
+        Retour à l'inventaire
       </Link>
 
       <Card>
@@ -77,16 +130,59 @@ export function InventoryNew() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* Name field + similarity warning */}
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="name">Nom *</Label>
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. 2µL cryotubes"
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="ex: Cryotubes 2 mL"
                 required
               />
+
+              {/* Similarity panel */}
+              {similar.length > 0 && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2 mt-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-amber-800">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <p className="text-xs font-medium">
+                        {similar.length === 1
+                          ? 'Un article similaire existe déjà — vérifiez avant de créer :'
+                          : `${similar.length} articles similaires existent déjà — vérifiez avant de créer :`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDismissed(true)}
+                      className="text-xs text-amber-600 hover:text-amber-800 shrink-0"
+                    >
+                      Ignorer
+                    </button>
+                  </div>
+                  <ul className="space-y-1">
+                    {similar.map(it => (
+                      <li key={it.id}>
+                        <Link
+                          to={`/inventory/items/${it.id}`}
+                          target="_blank"
+                          className="flex items-center gap-2 text-xs rounded px-2 py-1.5 hover:bg-amber-100 transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3 text-amber-600 shrink-0" />
+                          <span className="font-medium text-amber-900">{it.name}</span>
+                          <span className="text-amber-600">— {it.category}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-amber-600 pl-1">
+                    Si c'est un article différent (ex: même nom, catégorie différente), ignorez cette alerte et continuez.
+                  </p>
+                </div>
+              )}
             </div>
+
             <div className="space-y-1">
               <Label htmlFor="category">Catégorie *</Label>
               <SelectOrNew
@@ -94,8 +190,7 @@ export function InventoryNew() {
                 value={category}
                 onChange={setCategory}
                 options={categories}
-                placeholder="Select or add category…"
-                newPlaceholder="e.g. Reagents, PPE, Consumables…"
+                placeholder="Sélectionner ou ajouter…"
               />
             </div>
             <div className="space-y-1">
@@ -105,8 +200,7 @@ export function InventoryNew() {
                 value={unit}
                 onChange={setUnit}
                 options={units}
-                placeholder="Select or add unit…"
-                newPlaceholder="e.g. boxes, mL, units…"
+                placeholder="Sélectionner ou ajouter…"
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
@@ -115,11 +209,13 @@ export function InventoryNew() {
                 id="min"
                 type="number"
                 min={0}
-                step="0.01"
+                step="1"
                 value={minThreshold}
                 onChange={(e) => setMinThreshold(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">Une alerte email est envoyée quand le stock total tombe en dessous de ce seuil.</p>
+              <p className="text-xs text-muted-foreground">
+                Une alerte email est envoyée quand le stock total tombe en dessous de ce seuil.
+              </p>
             </div>
           </div>
         </CardContent>
@@ -143,15 +239,19 @@ export function InventoryNew() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Any additional details..."
+            placeholder="Observations, précisions…"
           />
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>Annuler</Link>
+        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>
+          Annuler
+        </Link>
         <Button type="submit" disabled={submitting}>
-          {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+          {submitting
+            ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            : <Save className="h-4 w-4 mr-1" />}
           Enregistrer l'article
         </Button>
       </div>
