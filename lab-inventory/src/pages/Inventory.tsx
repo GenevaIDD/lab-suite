@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, differenceInDays } from 'date-fns'
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -166,6 +166,7 @@ export function Inventory() {
                     <TableHead>Unité</TableHead>
                     <TableHead className="text-right">Quantité</TableHead>
                     <TableHead className="text-right">Min</TableHead>
+                    <TableHead>Dernier comptage</TableHead>
                     <TableHead>Statut</TableHead>
                   </>
                 ) : (
@@ -183,11 +184,11 @@ export function Inventory() {
             <TableBody>
               {tab === 'items' ? (
                 loadingItems ? (
-                  <TableRow><TableCell colSpan={6} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
                 ) : itemsError ? (
-                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">Impossible de charger — vérifier la configuration Supabase.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">Impossible de charger — vérifier la configuration Supabase.</TableCell></TableRow>
                 ) : itemRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6}><EmptyState search={search} target="items" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7}><EmptyState search={search} target="items" /></TableCell></TableRow>
                 ) : (
                   itemRows.map((i) => (
                     <TableRow key={i.id}>
@@ -201,6 +202,9 @@ export function Inventory() {
                       <TableCell className="text-right font-semibold tabular-nums">{i.quantity}</TableCell>
                       <TableCell className="text-right text-muted-foreground tabular-nums">{i.min_threshold}</TableCell>
                       <TableCell>
+                        <LastCountedBadge date={i.last_counted_at} />
+                      </TableCell>
+                      <TableCell>
                         {i.low ? (
                           <Badge variant="destructive" className="text-xs">Stock faible</Badge>
                         ) : (
@@ -211,9 +215,9 @@ export function Inventory() {
                   ))
                 )
               ) : loadingDeliveries ? (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
               ) : deliveryRows.length === 0 ? (
-                <TableRow><TableCell colSpan={6}><EmptyState search={search} target="deliveries" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7}><EmptyState search={search} target="deliveries" /></TableCell></TableRow>
               ) : (
                 deliveryRows.map((d) => (
                   <TableRow key={d.id}>
@@ -260,5 +264,23 @@ function EmptyState({ search, target }: { search: string; target: 'items' | 'del
         </Link>
       )}
     </div>
+  )
+}
+
+function LastCountedBadge({ date }: { date?: string | null }) {
+  if (!date) {
+    return <span className="text-xs font-medium text-destructive">Jamais</span>
+  }
+  const days = differenceInDays(new Date(), parseISO(date))
+  const label = days === 0 ? "Aujourd'hui"
+    : days === 1 ? 'Hier'
+    : `il y a ${days}j`
+  const color = days <= 30 ? 'text-green-600'
+    : days <= 60 ? 'text-amber-600'
+    : 'text-destructive'
+  return (
+    <span className={`text-xs font-medium ${color}`} title={format(parseISO(date), 'd MMM yyyy')}>
+      {label}
+    </span>
   )
 }
