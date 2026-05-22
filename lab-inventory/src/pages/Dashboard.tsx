@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Wrench, Package, AlertTriangle, Clock, Loader2, CheckCircle2 } from 'lucide-react'
-import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock } from '@/lib/queries'
+import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock, useCategoryCoverage } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule, Equipment } from '@/types/database'
 
@@ -22,6 +22,7 @@ export function Dashboard() {
   const { data: schedules = [], isLoading: loadingSchedules } = useMaintenanceSchedules()
   const { data: itemTypes = [] } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
+  const { data: coverage = [], isLoading: loadingCoverage } = useCategoryCoverage(itemTypes)
 
   const today = new Date()
 
@@ -181,6 +182,60 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Coverage widget */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Couverture de l'inventaire par catégorie</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingCoverage ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : coverage.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune session d'inventaire complétée.</p>
+          ) : (
+            <div className="space-y-3">
+              {coverage.map(row => {
+                const pct = row.total ? Math.round((row.counted / row.total) * 100) : 0
+                const daysAgo = row.lastDate
+                  ? differenceInDays(new Date(), parseISO(row.lastDate))
+                  : null
+                const color = !row.lastDate ? 'bg-destructive'
+                  : pct < 50 ? 'bg-amber-500'
+                  : pct < 100 ? 'bg-primary/70'
+                  : 'bg-green-500'
+
+                return (
+                  <div key={row.category} className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="font-medium truncate">{row.category}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">
+                          {row.lastDate
+                            ? `${format(parseISO(row.lastDate), 'd MMM yyyy')} · il y a ${daysAgo}j`
+                            : 'Jamais compté'}
+                        </span>
+                        <Badge
+                          variant={pct === 100 ? 'outline' : 'secondary'}
+                          className={`text-xs ${pct < 50 ? 'text-amber-600' : ''}`}
+                        >
+                          {row.counted}/{row.total}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${color}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -197,6 +197,79 @@ export function useDeliveries() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any
 
+export interface CategoryCoverage {
+  category: string
+  lastDate: string | null       // target_date of most recent session covering this category
+  counted: number               // items counted in that session
+  total: number                 // total items in category
+}
+
+export function useCategoryCoverage(itemTypes: import('@/types/database').ItemType[]) {
+  return useQuery({
+    queryKey: ['category_coverage'],
+    queryFn: async (): Promise<CategoryCoverage[]> => {
+      // Fetch all completed sessions with their entries + item category
+      const { data, error } = await db
+        .from('inventory_sessions')
+        .select('id, target_date, inventory_session_entries(item_type_id, counted_quantity, item_type:item_types(category))')
+        .eq('status', 'completed')
+        .order('target_date', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      const sessions: Array<{
+        id: string
+        target_date: string
+        inventory_session_entries: Array<{
+          item_type_id: string
+          counted_quantity: number | null
+          item_type: { category: string } | null
+        }>
+      }> = data ?? []
+
+      // Build per-category totals from item_types
+      const categoryTotals = new Map<string, number>()
+      for (const it of itemTypes) {
+        categoryTotals.set(it.category, (categoryTotals.get(it.category) ?? 0) + 1)
+      }
+
+      // For each category, find the most recent session that had entries for it
+      const categoryBest = new Map<string, { date: string; counted: number }>()
+      for (const session of sessions) {
+        const entries = session.inventory_session_entries ?? []
+        // Group entries by category for this session
+        const byCat = new Map<string, { counted: number }>()
+        for (const e of entries) {
+          const cat = e.item_type?.category
+          if (!cat) continue
+          const cur = byCat.get(cat) ?? { counted: 0 }
+          if (e.counted_quantity !== null) cur.counted++
+          byCat.set(cat, cur)
+        }
+        // Update categoryBest if this is the most recent for each category
+        for (const [cat, stats] of byCat) {
+          if (!categoryBest.has(cat)) {
+            categoryBest.set(cat, { date: session.target_date, counted: stats.counted })
+          }
+        }
+      }
+
+      // Build result, sorted by coverage % ascending (worst first)
+      const result: CategoryCoverage[] = []
+      for (const [cat, total] of categoryTotals) {
+        const best = categoryBest.get(cat)
+        result.push({ category: cat, lastDate: best?.date ?? null, counted: best?.counted ?? 0, total })
+      }
+      result.sort((a, b) => {
+        const pctA = a.total ? a.counted / a.total : 0
+        const pctB = b.total ? b.counted / b.total : 0
+        return pctA - pctB || a.category.localeCompare(b.category)
+      })
+      return result
+    },
+    enabled: itemTypes.length > 0,
+  })
+}
+
 export function useActiveSession() {
   return useQuery({
     queryKey: ['inventory_sessions', 'active'],
