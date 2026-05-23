@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { format, parseISO, differenceInDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,92 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StockChart, BurnChart } from '@/components/ui/MiniChart'
 import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock } from '@/lib/queries'
+import { buildTimeline, buildBurnRate, buildAnomalies } from '@/lib/stockCalc'
 import { cn } from '@/lib/utils'
 
 function fmt(d: string) { return format(parseISO(d), 'd MMM yyyy') }
-function fmtShort(d: string) { try { return format(parseISO(d), 'MMM yy') } catch { return d } }
-
-function buildTimeline(
-  counts: Array<{ quantity: number; counted_at: string }>,
-  deliveries: Array<{ quantity: number; received_at: string }>,
-) {
-  type Pt = { date: string; countQty: number | null; deliveryQty: number | null }
-  const map = new Map<string, Pt>()
-
-  for (const c of counts) {
-    const d = c.counted_at.slice(0, 10)
-    const prev = map.get(d) ?? { date: d, countQty: null, deliveryQty: null }
-    map.set(d, { ...prev, countQty: c.quantity })
-  }
-  for (const dv of deliveries) {
-    const d = dv.received_at.slice(0, 10)
-    const prev = map.get(d) ?? { date: d, countQty: null, deliveryQty: null }
-    map.set(d, { ...prev, deliveryQty: (prev.deliveryQty ?? 0) + dv.quantity })
-  }
-
-  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date))
-}
-
-function buildBurnRate(
-  counts: Array<{ quantity: number; counted_at: string }>,
-  deliveries: Array<{ quantity: number; received_at: string }>,
-) {
-  if (counts.length < 2) return []
-  const periods: Array<{ period: string; label: string; burnRate: number; consumed: number; days: number }> = []
-
-  for (let i = 1; i < counts.length; i++) {
-    const prev = counts[i - 1]
-    const curr = counts[i]
-    const start = prev.counted_at.slice(0, 10)
-    const end   = curr.counted_at.slice(0, 10)
-    const days  = differenceInDays(parseISO(end), parseISO(start))
-    if (days <= 0) continue
-
-    const deliveriesBetween = deliveries
-      .filter(d => d.received_at.slice(0, 10) > start && d.received_at.slice(0, 10) <= end)
-      .reduce((sum, d) => sum + d.quantity, 0)
-
-    const rawConsumed = prev.quantity + deliveriesBetween - curr.quantity
-    const consumed = Math.max(0, rawConsumed)
-    const rate = Math.round((consumed / days) * 100) / 100
-    periods.push({ period: `${fmtShort(start)} – ${fmtShort(end)}`, label: `${fmt(start)} → ${fmt(end)}`, burnRate: rate, consumed, days })
-  }
-  return periods
-}
-
-interface Anomaly {
-  countDate: string        // date of the count that triggered the anomaly
-  prevDate: string         // date of the previous count
-  unexplained: number      // amount unexplained (curr - prev - deliveries)
-  deliveriesBetween: number
-}
-
-function buildAnomalies(
-  counts: Array<{ quantity: number; counted_at: string }>,
-  deliveries: Array<{ quantity: number; received_at: string }>,
-): Anomaly[] {
-  if (counts.length < 2) return []
-  const anomalies: Anomaly[] = []
-  for (let i = 1; i < counts.length; i++) {
-    const prev  = counts[i - 1]
-    const curr  = counts[i]
-    const start = prev.counted_at.slice(0, 10)
-    const end   = curr.counted_at.slice(0, 10)
-    const deliveriesBetween = deliveries
-      .filter(d => d.received_at.slice(0, 10) > start && d.received_at.slice(0, 10) <= end)
-      .reduce((sum, d) => sum + d.quantity, 0)
-    const rawConsumed = prev.quantity + deliveriesBetween - curr.quantity
-    if (rawConsumed < 0) {
-      anomalies.push({
-        countDate: end,
-        prevDate: start,
-        unexplained: Math.abs(rawConsumed),
-        deliveriesBetween,
-      })
-    }
-  }
-  return anomalies
-}
 
 // ── Component ─────────────────────────────────────────────────
 interface StockRow { item_type_id: string; quantity: number; last_counted_at: string }

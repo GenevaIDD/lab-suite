@@ -12,44 +12,7 @@ import { useCreateItemType, useCreateItemSource } from '@/lib/mutations'
 import { useDistinctCategories, useDistinctUnits, useItemTypes } from '@/lib/queries'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { ItemType } from '@/types/database'
-
-// ── Similarity helpers ────────────────────────────────────────
-
-/** Normalize: lowercase, strip accents + special chars → space, collapse spaces */
-function normalize(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')   // strip combining marks (é→e, ç→c)
-    .replace(/[µμ]/g, 'u')             // µL → uL
-    .replace(/[^a-z0-9]+/g, ' ')       // non-alphanumeric → space
-    .trim()
-}
-
-/** Significant tokens: words ≥ 3 chars (skip "de", "le", "la", etc.) */
-const STOP = new Set(['de', 'du', 'le', 'la', 'les', 'un', 'une', 'et', 'ou', 'en', 'for', 'the', 'and'])
-function tokens(s: string): Set<string> {
-  return new Set(normalize(s).split(' ').filter(t => t.length >= 3 && !STOP.has(t)))
-}
-
-function isSimilar(query: string, candidate: string): boolean {
-  if (query.length < 3) return false
-  const nq = normalize(query)
-  const nc = normalize(candidate)
-  // Exact or substring match
-  if (nc.includes(nq) || nq.includes(nc)) return true
-  // Shared significant tokens (≥1 overlap)
-  const tq = tokens(query)
-  const tc = tokens(candidate)
-  for (const t of tq) { if (tc.has(t)) return true }
-  return false
-}
-
-function findSimilar(name: string, items: ItemType[]): ItemType[] {
-  if (name.length < 3) return []
-  return items.filter(it => isSimilar(name, it.name)).slice(0, 5)
-}
+import { findSimilar } from '@/lib/similarity'
 
 // ── Component ─────────────────────────────────────────────────
 
