@@ -270,6 +270,20 @@ export function useCategoryCoverage(itemTypes: import('@/types/database').ItemTy
   })
 }
 
+export function useAllSessions() {
+  return useQuery({
+    queryKey: ['inventory_sessions', 'all'],
+    queryFn: async (): Promise<InventorySession[]> => {
+      const { data, error } = await db
+        .from('inventory_sessions')
+        .select('*')
+        .order('target_date', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as InventorySession[]
+    },
+  })
+}
+
 export function useActiveSession() {
   return useQuery({
     queryKey: ['inventory_sessions', 'active'],

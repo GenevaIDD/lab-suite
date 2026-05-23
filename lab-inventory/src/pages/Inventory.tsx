@@ -130,6 +130,9 @@ export function Inventory() {
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Link to="/inventory/sessions" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+            Historique
+          </Link>
           {!activeSession && (
             <Link to="/inventory/session/new" className={cn(buttonVariants({ variant: 'outline' }))}>
               <ClipboardList className="h-4 w-4 mr-1" />

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { format, parseISO, differenceInDays } from 'date-fns'
-import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit } from 'lucide-react'
+import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -53,11 +53,46 @@ function buildBurnRate(
       .filter(d => d.received_at.slice(0, 10) > start && d.received_at.slice(0, 10) <= end)
       .reduce((sum, d) => sum + d.quantity, 0)
 
-    const consumed = Math.max(0, prev.quantity + deliveriesBetween - curr.quantity)
+    const rawConsumed = prev.quantity + deliveriesBetween - curr.quantity
+    const consumed = Math.max(0, rawConsumed)
     const rate = Math.round((consumed / days) * 100) / 100
     periods.push({ period: `${fmtShort(start)} – ${fmtShort(end)}`, label: `${fmt(start)} → ${fmt(end)}`, burnRate: rate, consumed, days })
   }
   return periods
+}
+
+interface Anomaly {
+  countDate: string        // date of the count that triggered the anomaly
+  prevDate: string         // date of the previous count
+  unexplained: number      // amount unexplained (curr - prev - deliveries)
+  deliveriesBetween: number
+}
+
+function buildAnomalies(
+  counts: Array<{ quantity: number; counted_at: string }>,
+  deliveries: Array<{ quantity: number; received_at: string }>,
+): Anomaly[] {
+  if (counts.length < 2) return []
+  const anomalies: Anomaly[] = []
+  for (let i = 1; i < counts.length; i++) {
+    const prev  = counts[i - 1]
+    const curr  = counts[i]
+    const start = prev.counted_at.slice(0, 10)
+    const end   = curr.counted_at.slice(0, 10)
+    const deliveriesBetween = deliveries
+      .filter(d => d.received_at.slice(0, 10) > start && d.received_at.slice(0, 10) <= end)
+      .reduce((sum, d) => sum + d.quantity, 0)
+    const rawConsumed = prev.quantity + deliveriesBetween - curr.quantity
+    if (rawConsumed < 0) {
+      anomalies.push({
+        countDate: end,
+        prevDate: start,
+        unexplained: Math.abs(rawConsumed),
+        deliveriesBetween,
+      })
+    }
+  }
+  return anomalies
 }
 
 // ── Component ─────────────────────────────────────────────────
@@ -77,6 +112,7 @@ export function ItemDetail() {
   const isLow        = item ? currentQty < item.min_threshold : false
   const timeline     = useMemo(() => buildTimeline(counts, deliveries), [counts, deliveries])
   const burnRates    = useMemo(() => buildBurnRate(counts, deliveries), [counts, deliveries])
+  const anomalies    = useMemo(() => buildAnomalies(counts, deliveries), [counts, deliveries])
   const avgBurnRate  = useMemo(() => {
     if (!burnRates.length) return null
     return Math.round(burnRates.reduce((s, r) => s + r.burnRate, 0) / burnRates.length * 100) / 100
@@ -214,6 +250,25 @@ export function ItemDetail() {
 
       {/* Count history */}
       <Card>
+        {anomalies.length > 0 && (
+          <div className="mx-4 mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 space-y-1.5">
+            <div className="flex items-center gap-2 text-amber-800">
+              <TrendingUp className="h-4 w-4 shrink-0" />
+              <p className="text-xs font-semibold">
+                {anomalies.length === 1
+                  ? 'Augmentation inexpliquée détectée'
+                  : `${anomalies.length} augmentations inexpliquées détectées`}
+              </p>
+            </div>
+            {anomalies.map((a, i) => (
+              <p key={i} className="text-xs text-amber-700 pl-6">
+                Le {fmt(a.countDate)} : +{a.unexplained} {item?.unit} sans livraison enregistrée
+                {a.deliveriesBetween > 0 ? ` (${a.deliveriesBetween} reçu, mais stock augmente quand même)` : ''}.
+                Vérifiez si une livraison n'a pas été saisie.
+              </p>
+            ))}
+          </div>
+        )}
         <CardHeader><CardTitle className="text-base">Historique des comptages</CardTitle></CardHeader>
         <CardContent className="p-0">
           {counts.length === 0
