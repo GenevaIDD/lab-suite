@@ -5,6 +5,7 @@ import {
   Package,
   Users,
 } from 'lucide-react'
+import { useLang } from '@/lib/i18n'
 import {
   Sidebar,
   SidebarContent,
@@ -18,14 +19,14 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 
-const navItems = [
-  { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
-  { to: '/equipment', label: 'Équipements', icon: Wrench },
-  { to: '/inventory', label: 'Inventaire', icon: Package },
-  { to: '/users', label: 'Utilisateurs', icon: Users },
-]
-
 export function AppSidebar() {
+  const { t } = useLang()
+  const navItems = [
+    { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+    { to: '/equipment', label: t('nav.equipment'), icon: Wrench },
+    { to: '/inventory', label: t('nav.inventory'), icon: Package },
+    { to: '/users', label: t('nav.users'), icon: Users },
+  ]
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-4">
@@ -70,7 +71,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t px-4 py-3">
-        <p className="text-xs text-muted-foreground">Uvira, DRC</p>
+        <p className="text-xs text-muted-foreground">{t('nav.location')}</p>
       </SidebarFooter>
     </Sidebar>
   )

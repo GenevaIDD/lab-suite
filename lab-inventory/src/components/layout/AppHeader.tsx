@@ -15,6 +15,7 @@ import {
 import { Wifi, WifiOff, CloudUpload, LogOut } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useAuth, signOut, ROLE_LABELS } from '@/lib/auth'
+import { useLang } from '@/lib/i18n'
 import { toast } from 'sonner'
 
 interface AppHeaderProps {
@@ -24,6 +25,7 @@ interface AppHeaderProps {
 export function AppHeader({ title }: AppHeaderProps) {
   const { isOnline, pendingWrites } = useOnlineStatus()
   const { profile } = useAuth()
+  const { lang, setLang, t } = useLang()
   const navigate = useNavigate()
 
   const initials = profile?.full_name
@@ -38,7 +40,7 @@ export function AppHeader({ title }: AppHeaderProps) {
       await signOut()
       navigate('/login', { replace: true })
     } catch {
-      toast.error('Déconnexion échouée')
+      toast.error(t('header.signout.failed'))
     }
   }
 
@@ -49,21 +51,30 @@ export function AppHeader({ title }: AppHeaderProps) {
       <h1 className="text-base font-semibold">{title}</h1>
 
       <div className="ml-auto flex items-center gap-2">
+        {/* Language toggle */}
+        <button
+          onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+          className="text-xs font-medium text-muted-foreground hover:text-foreground border rounded px-1.5 py-0.5 transition-colors"
+          title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
+        >
+          {lang === 'fr' ? 'EN' : 'FR'}
+        </button>
+
         {pendingWrites > 0 && (
           <Badge variant="secondary" className="gap-1 text-xs">
             <CloudUpload className="h-3 w-3" />
-            {pendingWrites} en attente
+            {pendingWrites} {t('header.pending')}
           </Badge>
         )}
         {isOnline ? (
           <Badge variant="outline" className="gap-1 text-xs text-green-600 border-green-200">
             <Wifi className="h-3 w-3" />
-            En ligne
+            {t('header.online')}
           </Badge>
         ) : (
           <Badge variant="outline" className="gap-1 text-xs text-amber-600 border-amber-200">
             <WifiOff className="h-3 w-3" />
-            Hors ligne
+            {t('header.offline')}
           </Badge>
         )}
 
@@ -88,7 +99,7 @@ export function AppHeader({ title }: AppHeaderProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive gap-2 cursor-pointer">
               <LogOut className="h-4 w-4" />
-              Se déconnecter
+              {t('header.signout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -19,6 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useItemTypes, useDeliveries, useCurrentStock, useActiveSession } from '@/lib/queries'
+import { useLang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface StockRow {
@@ -38,6 +39,7 @@ export function Inventory() {
   const [tab, setTab] = useState<'items' | 'deliveries'>('items')
   const [sortBy, setSortBy] = useState<SortKey>('name')
 
+  const { t } = useLang()
   const { data: itemTypes = [], isLoading: loadingItems, error: itemsError } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
   const { data: deliveries = [], isLoading: loadingDeliveries } = useDeliveries()
@@ -106,7 +108,7 @@ export function Inventory() {
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={tab === 'items' ? 'Rechercher un article...' : 'Rechercher une livraison...'}
+              placeholder={tab === 'items' ? t('inv.search.items') : t('inv.search.deliveries')}
               className="pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -131,26 +133,26 @@ export function Inventory() {
           {!activeSession && (
             <Link to="/inventory/session/new" className={cn(buttonVariants({ variant: 'outline' }))}>
               <ClipboardList className="h-4 w-4 mr-1" />
-              Démarrer l'inventaire
+              {t('inv.btn.start')}
             </Link>
           )}
           <Link to="/inventory/stock-count" className={cn(buttonVariants({ variant: 'outline' }))}>
-            Comptage de stock
+            {t('inv.btn.count')}
           </Link>
           <Link to="/inventory/delivery/new" className={cn(buttonVariants({ variant: 'outline' }))}>
-            Nouvelle livraison
+            {t('inv.btn.delivery')}
           </Link>
           <Link to="/inventory/new" className={cn(buttonVariants())}>
             <Plus className="h-4 w-4 mr-1" />
-            Nouvel article
+            {t('inv.btn.new')}
           </Link>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
-          <TabsTrigger value="items">Stock actuel</TabsTrigger>
-          <TabsTrigger value="deliveries">Livraisons</TabsTrigger>
+          <TabsTrigger value="items">{t('inv.tab.stock')}</TabsTrigger>
+          <TabsTrigger value="deliveries">{t('inv.tab.deliveries')}</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -161,22 +163,22 @@ export function Inventory() {
               <TableRow>
                 {tab === 'items' ? (
                   <>
-                    <TableHead>Article</TableHead>
-                    <TableHead>Catégorie</TableHead>
-                    <TableHead>Unité</TableHead>
-                    <TableHead className="text-right">Quantité</TableHead>
-                    <TableHead className="text-right">Min</TableHead>
-                    <TableHead>Dernier comptage</TableHead>
-                    <TableHead>Statut</TableHead>
+                    <TableHead>{t('inv.col.item')}</TableHead>
+                    <TableHead>{t('inv.col.category')}</TableHead>
+                    <TableHead>{t('inv.col.unit')}</TableHead>
+                    <TableHead className="text-right">{t('inv.col.quantity')}</TableHead>
+                    <TableHead className="text-right">{t('inv.col.min')}</TableHead>
+                    <TableHead>{t('inv.col.last.count')}</TableHead>
+                    <TableHead>{t('inv.col.status')}</TableHead>
                   </>
                 ) : (
                   <>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Article</TableHead>
-                    <TableHead>Fabricant</TableHead>
-                    <TableHead className="text-right">Qté</TableHead>
-                    <TableHead>N° lot</TableHead>
-                    <TableHead>Expiration</TableHead>
+                    <TableHead>{t('inv.col.date')}</TableHead>
+                    <TableHead>{t('inv.col.item')}</TableHead>
+                    <TableHead>{t('inv.col.manufacturer')}</TableHead>
+                    <TableHead className="text-right">{t('inv.col.qty.short')}</TableHead>
+                    <TableHead>{t('inv.col.lot')}</TableHead>
+                    <TableHead>{t('inv.col.expiry')}</TableHead>
                   </>
                 )}
               </TableRow>
@@ -206,7 +208,7 @@ export function Inventory() {
                       </TableCell>
                       <TableCell>
                         {i.low ? (
-                          <Badge variant="destructive" className="text-xs">Stock faible</Badge>
+                          <Badge variant="destructive" className="text-xs">{t('inv.status.low')}</Badge>
                         ) : (
                           <Badge variant="outline" className="text-xs">OK</Badge>
                         )}

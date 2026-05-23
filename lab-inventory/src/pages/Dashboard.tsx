@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Wrench, Package, AlertTriangle, Clock, Loader2, CheckCircle2 } from 'lucide-react'
 import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock, useCategoryCoverage } from '@/lib/queries'
+import { useLang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule, Equipment } from '@/types/database'
 
@@ -18,6 +19,7 @@ interface StockRow {
 }
 
 export function Dashboard() {
+  const { t } = useLang()
   const { data: equipment = [], isLoading: loadingEquipment } = useEquipmentList()
   const { data: schedules = [], isLoading: loadingSchedules } = useMaintenanceSchedules()
   const { data: itemTypes = [] } = useItemTypes()
@@ -61,8 +63,8 @@ export function Dashboard() {
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <p className="text-sm font-medium">
               {[
-                overdue.length > 0 && `${overdue.length} maintenance en retard`,
-                lowStock.length > 0 && `${lowStock.length} article${lowStock.length > 1 ? 's' : ''} en-dessous du seuil minimum`,
+                overdue.length > 0 && `${overdue.length} ${t('dash.alert.maintenance')}`,
+                lowStock.length > 0 && `${lowStock.length} ${t('dash.alert.low.stock')}`,
               ].filter(Boolean).join(' · ')}
             </p>
           </div>
@@ -72,32 +74,32 @@ export function Dashboard() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Équipements"
+          title={t('dash.equipment')}
           value={loading ? '…' : String(equipment.length)}
           icon={Wrench}
-          description="articles enregistrés"
+          description={t('dash.equipment.sub')}
           href="/equipment"
         />
         <StatCard
-          title="Maintenance en retard"
+          title={t('dash.overdue')}
           value={loading ? '…' : String(overdue.length)}
           icon={Clock}
-          description="nécessitent attention"
+          description={t('dash.overdue.sub')}
           urgent={overdue.length > 0}
           href="/equipment"
         />
         <StatCard
-          title="Articles inventaire"
+          title={t('dash.inventory.items')}
           value={String(itemTypes.length)}
           icon={Package}
-          description="types d'articles suivis"
+          description={t('dash.inventory.items.sub')}
           href="/inventory"
         />
         <StatCard
-          title="Stock faible"
+          title={t('dash.low.stock')}
           value={String(lowStock.length)}
           icon={AlertTriangle}
-          description="en-dessous du seuil"
+          description={t('dash.low.stock.sub')}
           urgent={lowStock.length > 0}
           href="/inventory"
         />
@@ -108,7 +110,7 @@ export function Dashboard() {
         {/* Maintenance */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Alertes de maintenance</CardTitle>
+            <CardTitle className="text-base">{t('dash.maintenance.alerts')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {loading ? (
@@ -116,7 +118,7 @@ export function Dashboard() {
             ) : overdue.length === 0 && dueSoon.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                Toutes les maintenances sont à jour.
+                {t('dash.maintenance.ok')}
               </div>
             ) : (
               <>
@@ -149,13 +151,13 @@ export function Dashboard() {
         {/* Low stock */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Alertes stock faible</CardTitle>
+            <CardTitle className="text-base">{t('dash.low.stock.alerts')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {lowStock.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                Tous les articles sont au-dessus du seuil minimum.
+                {t('dash.low.stock.ok')}
               </div>
             ) : (
               lowStock.map((item) => (
@@ -170,13 +172,13 @@ export function Dashboard() {
                       {item.quantity} {item.unit} · min {item.min_threshold}
                     </p>
                   </div>
-                  <Badge variant="destructive" className="text-xs shrink-0">Faible</Badge>
+                  <Badge variant="destructive" className="text-xs shrink-0">{t('inv.status.low')}</Badge>
                 </Link>
               ))
             )}
             {lowStock.length > 0 && (
               <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'w-full mt-2')}>
-                Voir l'inventaire
+                {t('dash.view.inventory')}
               </Link>
             )}
           </CardContent>
@@ -186,13 +188,13 @@ export function Dashboard() {
       {/* Coverage widget */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Couverture de l'inventaire par catégorie</CardTitle>
+          <CardTitle className="text-base">{t('dash.coverage.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingCoverage ? (
             <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           ) : coverage.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune session d'inventaire complétée.</p>
+            <p className="text-sm text-muted-foreground">{t('dash.coverage.empty')}</p>
           ) : (
             <div className="space-y-3">
               {coverage.map(row => {
@@ -212,8 +214,8 @@ export function Dashboard() {
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground">
                           {row.lastDate
-                            ? `${format(parseISO(row.lastDate), 'd MMM yyyy')} · il y a ${daysAgo}j`
-                            : 'Jamais compté'}
+                            ? `${format(parseISO(row.lastDate), 'd MMM yyyy')} · ${t('dash.coverage.ago')} ${daysAgo}${t('dash.coverage.days')}`
+                            : t('dash.coverage.never')}
                         </span>
                         <Badge
                           variant={pct === 100 ? 'outline' : 'secondary'}
@@ -286,6 +288,7 @@ function MaintenanceRow({
   status: 'overdue' | 'due-soon'
   equipmentId: string
 }) {
+  const { t } = useLang()
   return (
     <Link
       to={`/equipment/${equipmentId}`}
@@ -297,11 +300,11 @@ function MaintenanceRow({
       </div>
       {status === 'overdue' ? (
         <Badge variant="destructive" className="text-xs shrink-0">
-          En retard {format(parseISO(dueDate), 'd MMM')}
+          {t('dash.overdue.label')} {format(parseISO(dueDate), 'd MMM')}
         </Badge>
       ) : (
         <Badge className="text-xs shrink-0 bg-amber-500 hover:bg-amber-500/90">
-          Dans {days}j
+          {t('dash.due.soon.label')} {days}{t('dash.due.soon.days')}
         </Badge>
       )}
     </Link>

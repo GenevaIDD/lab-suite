@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
+import { useLang } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,6 +11,7 @@ import { toast } from 'sonner'
 
 export function Login() {
   const navigate = useNavigate()
+  const { t } = useLang()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +23,7 @@ export function Login() {
       await signIn(email, password)
       navigate('/', { replace: true })
     } catch (err) {
-      toast.error((err as Error).message ?? 'Login failed')
+      toast.error((err as Error).message ?? t('login.failed'))
     } finally {
       setLoading(false)
     }
@@ -32,18 +34,18 @@ export function Login() {
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3">
           <img src="/logo.svg" alt="Geneva Disease Dynamics" className="w-48" />
-          <p className="text-sm text-muted-foreground">Connectez-vous à votre compte</p>
+          <p className="text-sm text-muted-foreground">{t('login.tagline')}</p>
         </div>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Connexion</CardTitle>
-            <CardDescription>Entrez votre email et mot de passe</CardDescription>
+            <CardTitle className="text-base">{t('login.title')}</CardTitle>
+            <CardDescription>{t('login.desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("login.email")}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -54,7 +56,7 @@ export function Login() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="password">Mot de passe</Label>
+                <Label htmlFor="password">{t("login.password")}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -66,14 +68,14 @@ export function Login() {
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Se connecter
+                {t('login.btn')}
               </Button>
             </form>
           </CardContent>
         </Card>
 
         <p className="text-center text-xs text-muted-foreground">
-          Pas de compte ? Contactez votre administrateur.
+          {t('login.no.account')}
         </p>
       </div>
     </div>

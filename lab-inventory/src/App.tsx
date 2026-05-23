@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthContext, useAuth, useAuthState } from '@/lib/auth'
+import { LangProvider } from '@/lib/i18n'
 import { AppShell } from '@/components/layout/AppShell'
 import { Login } from '@/pages/Login'
 import { Dashboard } from '@/pages/Dashboard'
@@ -62,6 +63,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <LangProvider>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthGate>
@@ -96,5 +98,6 @@ export default function App() {
         </AuthGate>
       </BrowserRouter>
     </QueryClientProvider>
+    </LangProvider>
   )
 }

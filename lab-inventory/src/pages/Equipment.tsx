@@ -15,11 +15,13 @@ import {
 } from '@/components/ui/table'
 import { Plus, Search, Wrench, AlertTriangle, Clock, Loader2, ArchiveX } from 'lucide-react'
 import { useEquipmentList, useMaintenanceSchedules } from '@/lib/queries'
+import { useLang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
 
 export function Equipment() {
   const [search, setSearch] = useState('')
+  const { t } = useLang()
   const { data: equipment = [], isLoading, error } = useEquipmentList()
   const { data: schedules = [] } = useMaintenanceSchedules()
 
@@ -46,7 +48,7 @@ export function Equipment() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher un équipement..."
+            placeholder={t('equip.search')}
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -58,7 +60,7 @@ export function Equipment() {
         </Link>
         <Link to="/equipment/new" className={cn(buttonVariants())}>
           <Plus className="h-4 w-4 mr-1" />
-          Ajouter équipement
+          {t('equip.add')}
         </Link>
       </div>
 
@@ -67,10 +69,10 @@ export function Equipment() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Prochaine maintenance</TableHead>
-                <TableHead>Statut</TableHead>
+                <TableHead>{t('equip.col.name')}</TableHead>
+                <TableHead>{t('equip.col.category')}</TableHead>
+                <TableHead>{t('equip.col.next.maint')}</TableHead>
+                <TableHead>{t('equip.col.status')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -92,7 +94,7 @@ export function Equipment() {
                     <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                       <Wrench className="h-8 w-8 opacity-30" />
                       <p className="text-sm">
-                        {search ? 'Aucun équipement ne correspond à la recherche.' : 'Aucun équipement enregistré.'}
+                        {search ? t('equip.empty.search') : t('equip.empty')}
                       </p>
                       {!search && (
                         <Link to="/equipment/new" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
@@ -142,12 +144,13 @@ export function Equipment() {
 }
 
 function StatusBadge({ schedule, days }: { schedule?: MaintenanceSchedule; days?: number }) {
-  if (!schedule || days === undefined) return <Badge variant="outline" className="text-xs">Sans planning</Badge>
+  const { t } = useLang()
+  if (!schedule || days === undefined) return <Badge variant="outline" className="text-xs">{t('equip.status.no.sched')}</Badge>
   if (days < 0) {
     return (
       <Badge variant="destructive" className="gap-1 text-xs">
         <AlertTriangle className="h-3 w-3" />
-        En retard
+        {t('equip.status.overdue')}
       </Badge>
     )
   }
@@ -155,9 +158,9 @@ function StatusBadge({ schedule, days }: { schedule?: MaintenanceSchedule; days?
     return (
       <Badge className="gap-1 text-xs bg-amber-500 hover:bg-amber-500/90">
         <Clock className="h-3 w-3" />
-        Bientôt dû
+        {t('equip.status.due.soon')}
       </Badge>
     )
   }
-  return <Badge variant="outline" className="text-xs">OK</Badge>
+  return <Badge variant="outline" className="text-xs">{t('equip.status.ok')}</Badge>
 }
