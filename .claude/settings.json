@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(jq -r '.tool_input.file_path // .tool_response.filePath'); echo \"$file\" | grep -q 'lab-inventory/src/' && cd /Users/andrew/Documents/GitHub/lab-suite/lab-inventory && npm test || true",
+            "timeout": 60,
+            "statusMessage": "Running tests..."
+          }
+        ]
+      }
+    ]
+  }
+}
