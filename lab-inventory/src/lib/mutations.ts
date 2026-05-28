@@ -337,6 +337,83 @@ export function useCompleteSession() {
   })
 }
 
+// ── Lot mutations ─────────────────────────────────────────────
+
+type LotCreateInput = {
+  item_type_id: string
+  delivery_id: string | null
+  manufacturer: string
+  expiry_date: string
+  lot_number: string | null
+  quantity_initial: number
+  quantity_remaining: number
+}
+
+export function useUpsertLot() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: LotCreateInput) => {
+      // Check for existing matching lot (same identity key)
+      const { data: existing } = await db
+        .from('lots')
+        .select('id, quantity_initial, quantity_remaining')
+        .eq('item_type_id', input.item_type_id)
+        .eq('manufacturer', input.manufacturer)
+        .eq('expiry_date', input.expiry_date)
+        .is('lot_number', input.lot_number)
+        .is('exhausted_at', null)
+        .maybeSingle()
+
+      if (existing) {
+        // Merge into existing lot — add quantity
+        const { data, error } = await db.from('lots').update({
+          quantity_initial: existing.quantity_initial + input.quantity_initial,
+          quantity_remaining: existing.quantity_remaining + input.quantity_remaining,
+        }).eq('id', existing.id).select().single()
+        if (error) throw error
+        return data
+      } else {
+        // Create new lot
+        const { data, error } = await db.from('lots').insert(input).select().single()
+        if (error) throw error
+        return data
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['lots', vars.item_type_id] })
+      qc.invalidateQueries({ queryKey: ['lots', 'all_active'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+    },
+  })
+}
+
+export function useUpdateLotCount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      lotId,
+      countedQuantity,
+    }: {
+      lotId: string
+      itemTypeId: string
+      countedQuantity: number
+    }) => {
+      const exhausted = countedQuantity === 0
+      const { data, error } = await db.from('lots').update({
+        quantity_remaining: countedQuantity,
+        exhausted_at: exhausted ? new Date().toISOString() : null,
+      }).eq('id', lotId).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['lots', vars.itemTypeId] })
+      qc.invalidateQueries({ queryKey: ['lots', 'all_active'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+    },
+  })
+}
+
 export async function uploadEquipmentDocument(file: File): Promise<{ url: string; name: string; size: number } | null> {
   if (!navigator.onLine) return null
   const ext = file.name.split('.').pop() ?? 'bin'

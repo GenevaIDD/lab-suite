@@ -25,7 +25,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ItemCombobox } from '@/components/ui/ItemCombobox'
 import { useItemTypes, useItemSources } from '@/lib/queries'
-import { useCreateDelivery, useCreateItemSource } from '@/lib/mutations'
+import { useCreateDelivery, useCreateItemSource, useUpsertLot } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +33,7 @@ export function DeliveryNew() {
   const navigate = useNavigate()
   const { data: itemTypes = [], isLoading: loadingTypes } = useItemTypes()
   const createDelivery = useCreateDelivery()
+  const upsertLot = useUpsertLot()
 
   const [itemTypeId, setItemTypeId] = useState('')
   const [itemSourceId, setItemSourceId] = useState('')
@@ -44,6 +45,8 @@ export function DeliveryNew() {
   const [notes, setNotes] = useState('')
 
   const { data: sources = [] } = useItemSources(itemTypeId || undefined)
+  const selectedItem = useMemo(() => itemTypes.find(i => i.id === itemTypeId), [itemTypes, itemTypeId])
+  const isTracked = selectedItem?.track_lots ?? false
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -51,8 +54,16 @@ export function DeliveryNew() {
       toast.error('L\'article et la quantité sont requis')
       return
     }
+    if (isTracked && !itemSourceId) {
+      toast.error('Le fabricant est requis pour cet article (suivi par lot)')
+      return
+    }
+    if (isTracked && !expiryDate) {
+      toast.error('La date d\'expiration est requise pour cet article (suivi par lot)')
+      return
+    }
     try {
-      await createDelivery.mutateAsync({
+      const delivery = await createDelivery.mutateAsync({
         item_type_id: itemTypeId,
         item_source_id: itemSourceId || null,
         quantity: Number(quantity),
@@ -62,14 +73,27 @@ export function DeliveryNew() {
         received_by: receivedBy || null,
         notes: notes || null,
       })
-      toast.success(navigator.onLine ? 'Delivery logged' : 'Saved offline — will sync when online')
+      // For tracked items, create/update a lot record
+      if (isTracked && expiryDate && itemSourceId) {
+        const source = sources.find(s => s.id === itemSourceId)
+        if (source && delivery) {
+          await upsertLot.mutateAsync({
+            item_type_id: itemTypeId,
+            delivery_id: delivery.id ?? null,
+            manufacturer: source.manufacturer,
+            expiry_date: expiryDate,
+            lot_number: lotNumber || null,
+            quantity_initial: Number(quantity),
+            quantity_remaining: Number(quantity),
+          })
+        }
+      }
+      toast.success(navigator.onLine ? 'Livraison enregistrée' : 'Sauvegardé hors ligne')
       navigate('/inventory')
     } catch (err) {
-      toast.error(`Save failed: ${(err as Error).message}`)
+      toast.error(`Erreur : ${(err as Error).message}`)
     }
   }
-
-  const selectedItem = useMemo(() => itemTypes.find((i) => i.id === itemTypeId), [itemTypes, itemTypeId])
 
   return (
     <form onSubmit={onSubmit} className="space-y-6 max-w-2xl">
@@ -103,7 +127,7 @@ export function DeliveryNew() {
           {itemTypeId && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <Label htmlFor="source">Fabricant / source</Label>
+                <Label htmlFor="source">Fabricant / source {isTracked && <span className="text-destructive">*</span>}</Label>
                 <NewSourceDialog itemTypeId={itemTypeId} onCreated={setItemSourceId} />
               </div>
               <Select value={itemSourceId} onValueChange={(v) => setItemSourceId(v ?? '')}>
@@ -132,11 +156,11 @@ export function DeliveryNew() {
               <Input id="qty" type="number" min={0} step={qtyStep(selectedItem?.unit)} value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="lot">Numéro de lot</Label>
+              <Label htmlFor="lot">Numéro de lot <span className="text-xs text-muted-foreground font-normal">(optionnel)</span></Label>
               <Input id="lot" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="exp">Date d'expiration</Label>
+              <Label htmlFor="exp">Date d'expiration {isTracked && <span className="text-destructive">*</span>}</Label>
               <Input id="exp" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
             </div>
             <div className="space-y-1">

@@ -114,6 +114,7 @@ create table item_types (
   category            text not null,   -- e.g. "consumables", "reagents", "PPE"
   unit                text not null,   -- e.g. "boxes", "mL", "units"
   min_threshold       numeric(10, 2) not null default 0,
+  track_lots          boolean not null default false,  -- if true, track lots with expiry/manufacturer
   low_stock_alerted_at timestamptz,
   notes               text,
   created_at          timestamptz not null default now(),
@@ -200,6 +201,7 @@ create table inventory_session_entries (
   id               uuid primary key default uuid_generate_v4(),
   session_id       uuid not null references inventory_sessions(id) on delete cascade,
   item_type_id     uuid not null references item_types(id) on delete cascade,
+  lot_id           uuid references lots(id) on delete set null,  -- null for non-tracked items
   sort_order       int not null,
   counted_quantity numeric(10, 2),   -- null until entered
   entered_at       timestamptz,
@@ -212,13 +214,38 @@ create index ise_session_idx on inventory_session_entries(session_id);
 create index ise_sort_idx    on inventory_session_entries(session_id, sort_order);
 
 -- ============================================================
+-- Lots
+-- Tracks individual batches for items with track_lots = true.
+-- Lot identity: (item_type_id, manufacturer, expiry_date, lot_number?)
+-- quantity_remaining is maintained: updated on each inventory count.
+-- exhausted_at set when count = 0; cleared when corrected to non-zero.
+-- ============================================================
+
+create table lots (
+  id                 uuid primary key default uuid_generate_v4(),
+  item_type_id       uuid not null references item_types(id) on delete cascade,
+  delivery_id        uuid references deliveries(id) on delete set null,
+  manufacturer       text not null,
+  expiry_date        date not null,
+  lot_number         text,
+  quantity_initial   numeric(10, 2) not null,
+  quantity_remaining numeric(10, 2) not null default 0,
+  exhausted_at       timestamptz,
+  created_at         timestamptz not null default now()
+);
+
+create index lots_item_idx     on lots(item_type_id);
+create index lots_active_idx   on lots(item_type_id) where exhausted_at is null;
+create index lots_expiry_idx   on lots(expiry_date) where exhausted_at is null;
+
+-- ============================================================
 -- View: current stock per item type
 -- Sums the latest count + all deliveries received since
 -- ============================================================
 
 create or replace view current_stock as
+-- Non-tracked items: last count + deliveries since (original logic)
 with latest_count as (
-  -- Most recent physical count per item (may not exist for new items)
   select distinct on (item_type_id)
     item_type_id,
     quantity   as count_qty,
@@ -227,27 +254,47 @@ with latest_count as (
   order by item_type_id, counted_at desc
 ),
 deliveries_since as (
-  -- Deliveries received after the latest count, OR all deliveries if no count exists
   select
     d.item_type_id,
     coalesce(sum(d.quantity), 0) as delivered_qty
   from deliveries d
   left join latest_count lc on lc.item_type_id = d.item_type_id
-  where lc.counted_at is null            -- no count yet → include all deliveries
-     or d.received_at > lc.counted_at   -- count exists → only deliveries after it
+  where lc.counted_at is null
+     or d.received_at > lc.counted_at
   group by d.item_type_id
+),
+non_tracked as (
+  select
+    it.id                                                        as item_type_id,
+    it.name,
+    it.category,
+    it.unit,
+    it.min_threshold,
+    coalesce(lc.count_qty, 0) + coalesce(ds.delivered_qty, 0)  as quantity,
+    lc.counted_at                                                as last_counted_at
+  from item_types it
+  left join latest_count lc    on lc.item_type_id = it.id
+  left join deliveries_since ds on ds.item_type_id = it.id
+  where it.track_lots = false
+),
+-- Tracked items: sum of active (non-exhausted) lot quantities
+tracked as (
+  select
+    it.id                                   as item_type_id,
+    it.name,
+    it.category,
+    it.unit,
+    it.min_threshold,
+    coalesce(sum(l.quantity_remaining), 0)  as quantity,
+    max(l.created_at)::timestamptz          as last_counted_at
+  from item_types it
+  left join lots l on l.item_type_id = it.id and l.exhausted_at is null
+  where it.track_lots = true
+  group by it.id, it.name, it.category, it.unit, it.min_threshold
 )
-select
-  it.id                                                        as item_type_id,
-  it.name,
-  it.category,
-  it.unit,
-  it.min_threshold,
-  coalesce(lc.count_qty, 0) + coalesce(ds.delivered_qty, 0)  as quantity,
-  lc.counted_at                                                as last_counted_at
-from item_types it
-left join latest_count lc    on lc.item_type_id = it.id
-left join deliveries_since ds on ds.item_type_id = it.id;
+select * from non_tracked
+union all
+select * from tracked;
 
 -- ============================================================
 -- RLS Policies
@@ -259,10 +306,11 @@ alter table maintenance_schedules enable row level security;
 alter table maintenance_logs    enable row level security;
 alter table item_types          enable row level security;
 alter table item_sources        enable row level security;
-alter table stock_counts           enable row level security;
-alter table deliveries             enable row level security;
-alter table inventory_sessions     enable row level security;
+alter table stock_counts              enable row level security;
+alter table deliveries                enable row level security;
+alter table inventory_sessions        enable row level security;
 alter table inventory_session_entries enable row level security;
+alter table lots                      enable row level security;
 
 -- All authenticated users can read everything
 create policy "authenticated read"  on profiles            for select using (auth.role() = 'authenticated');
@@ -309,6 +357,13 @@ create policy "admin+lab_manager+tech write stock_counts" on stock_counts
 
 create policy "admin+lab_manager+tech write deliveries" on deliveries
   for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
+  );
+
+-- Lots: all authenticated can read; admin+lab_manager+tech can write
+create policy "authenticated read lots"    on lots for select using (auth.role() = 'authenticated');
+create policy "admin+lab_manager+tech write lots" on lots
+  for all using (
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
 

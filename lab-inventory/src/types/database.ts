@@ -71,10 +71,25 @@ export interface ItemType {
   category: string
   unit: string
   min_threshold: number
+  track_lots: boolean
   low_stock_alerted_at: string | null
   notes: string | null
   created_at: string
   updated_at: string
+}
+
+export interface InventoryLot {
+  id: string
+  item_type_id: string
+  delivery_id: string | null
+  manufacturer: string
+  expiry_date: string
+  lot_number: string | null
+  quantity_initial: number
+  quantity_remaining: number
+  exhausted_at: string | null
+  created_at: string
+  item_type?: ItemType
 }
 
 export interface ItemSource {
@@ -129,6 +144,7 @@ export interface InventorySessionEntry {
   id: string
   session_id: string
   item_type_id: string
+  lot_id: string | null
   sort_order: number
   counted_quantity: number | null
   entered_at: string | null
@@ -136,6 +152,7 @@ export interface InventorySessionEntry {
   notes: string | null
   created_at: string
   item_type?: ItemType
+  lot?: InventoryLot
 }
 
 export interface EquipmentDocument {
@@ -163,6 +180,7 @@ export type Database = {
       equipment_documents: { Row: EquipmentDocument; Insert: Omit<EquipmentDocument, 'id' | 'uploaded_at'>; Update: Partial<EquipmentDocument> }
       inventory_sessions: { Row: InventorySession; Insert: Omit<InventorySession, 'id' | 'created_at'>; Update: Partial<InventorySession> }
       inventory_session_entries: { Row: InventorySessionEntry; Insert: Omit<InventorySessionEntry, 'id' | 'created_at'>; Update: Partial<InventorySessionEntry> }
+      lots: { Row: InventoryLot; Insert: Omit<InventoryLot, 'id' | 'created_at'>; Update: Partial<InventoryLot> }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

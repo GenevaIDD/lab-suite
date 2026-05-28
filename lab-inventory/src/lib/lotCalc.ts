@@ -80,7 +80,7 @@ export function shouldExhaustLot(countedQuantity: number): boolean {
  * and whether the lot is now exhausted.
  */
 export function applyCountToLot(
-  lot: Lot,
+  _lot: Lot,
   countedQuantity: number,
 ): { quantity_remaining: number; exhausted: boolean } {
   return {

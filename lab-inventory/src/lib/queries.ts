@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot } from '@/types/database'
 
 export function useEquipmentList(includeRetired = false) {
   return useQuery({
@@ -118,6 +118,35 @@ export function useItemTypes() {
         .order('name')
       if (error) throw error
       return data ?? []
+    },
+  })
+}
+
+export function useItemLots(itemTypeId: string | undefined, includeExhausted = false) {
+  return useQuery({
+    queryKey: ['lots', itemTypeId, includeExhausted],
+    enabled: !!itemTypeId,
+    queryFn: async (): Promise<InventoryLot[]> => {
+      let q = db.from('lots').select('*').eq('item_type_id', itemTypeId!).order('expiry_date')
+      if (!includeExhausted) q = q.is('exhausted_at', null)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as InventoryLot[]
+    },
+  })
+}
+
+export function useAllActiveLots() {
+  return useQuery({
+    queryKey: ['lots', 'all_active'],
+    queryFn: async (): Promise<InventoryLot[]> => {
+      const { data, error } = await db
+        .from('lots')
+        .select('*, item_type:item_types(id, name, category, unit, min_threshold, track_lots)')
+        .is('exhausted_at', null)
+        .order('expiry_date')
+      if (error) throw error
+      return (data ?? []) as InventoryLot[]
     },
   })
 }

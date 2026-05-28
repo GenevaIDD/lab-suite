@@ -29,6 +29,7 @@ export function InventoryNew() {
   const [category, setCategory]       = useState('')
   const [unit, setUnit]               = useState('')
   const [minThreshold, setMinThreshold] = useState('0')
+  const [trackLots, setTrackLots]     = useState(false)
   const [notes, setNotes]             = useState('')
   const [sources, setSources]         = useState<SourceDraft[]>([])
   const [dismissed, setDismissed]     = useState(false)
@@ -56,6 +57,7 @@ export function InventoryNew() {
         category,
         unit,
         min_threshold: Number(minThreshold) || 0,
+        track_lots: trackLots,
         low_stock_alerted_at: null,
         notes: notes || null,
       })
@@ -179,6 +181,23 @@ export function InventoryNew() {
               <p className="text-xs text-muted-foreground">
                 Une alerte email est envoyée quand le stock total tombe en dessous de ce seuil.
               </p>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={trackLots}
+                  onChange={e => setTrackLots(e.target.checked)}
+                  className="mt-0.5 rounded"
+                />
+                <div>
+                  <p className="text-sm font-medium">Suivi par lot (dates d'expiration)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Activer pour les réactifs, milieux et diagnostiques avec date d'expiration.
+                    Chaque livraison demandera : fabricant (requis), date d'expiration (requise), numéro de lot (optionnel).
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         </CardContent>
