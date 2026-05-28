@@ -1,15 +1,17 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp, FlaskConical } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StockChart, BurnChart } from '@/components/ui/MiniChart'
-import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock } from '@/lib/queries'
+import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots } from '@/lib/queries'
 import { buildTimeline, buildBurnRate, buildAnomalies } from '@/lib/stockCalc'
+import { getExpiringLots } from '@/lib/lotCalc'
 import { cn } from '@/lib/utils'
+import type { InventoryLot } from '@/types/database'
 
 function fmt(d: string) { return format(parseISO(d), 'd MMM yyyy') }
 
@@ -24,6 +26,8 @@ export function ItemDetail() {
   const { data: deliveries = [] } = useItemDeliveries(id)
   const { data: sources = [] }    = useItemSources(id)
   const { data: stockRows = [] }  = useCurrentStock() as { data: StockRow[] }
+  const { data: activeLots = [] } = useItemLots(id)
+  const { data: allLots = [] }    = useItemLots(id, true)  // including exhausted
 
   const currentQty   = useMemo(() => stockRows.find(r => r.item_type_id === id)?.quantity ?? 0, [stockRows, id])
   const lastCounted  = useMemo(() => stockRows.find(r => r.item_type_id === id)?.last_counted_at, [stockRows, id])
@@ -31,6 +35,7 @@ export function ItemDetail() {
   const timeline     = useMemo(() => buildTimeline(counts, deliveries), [counts, deliveries])
   const burnRates    = useMemo(() => buildBurnRate(counts, deliveries), [counts, deliveries])
   const anomalies    = useMemo(() => buildAnomalies(counts, deliveries), [counts, deliveries])
+  const expiringLots = useMemo(() => getExpiringLots(activeLots, 60), [activeLots])
   const avgBurnRate  = useMemo(() => {
     if (!burnRates.length) return null
     return Math.round(burnRates.reduce((s, r) => s + r.burnRate, 0) / burnRates.length * 100) / 100
@@ -88,6 +93,50 @@ export function ItemDetail() {
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Stock en-dessous du seuil minimum ({item.min_threshold} {item.unit})
         </div>
+      )}
+
+      {/* Lot breakdown — only for tracked items */}
+      {item.track_lots && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-muted-foreground" />
+              Lots actifs
+              {expiringLots.length > 0 && (
+                <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 ml-auto">
+                  {expiringLots.length} expire{expiringLots.length > 1 ? 'nt' : ''} bientôt
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {activeLots.length === 0 ? (
+              <p className="text-sm text-muted-foreground px-4 py-4">Aucun lot actif — enregistrez une livraison pour créer des lots.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fabricant</TableHead>
+                    <TableHead>Expiration</TableHead>
+                    <TableHead>N° lot</TableHead>
+                    <TableHead className="text-right">Qté restante</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeLots.map(lot => (
+                    <LotRow key={lot.id} lot={lot} unit={item.unit} />
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            {allLots.filter(l => l.exhausted_at !== null).length > 0 && (
+              <p className="text-xs text-muted-foreground px-4 py-2 border-t">
+                {allLots.filter(l => l.exhausted_at !== null).length} lot(s) épuisé(s) non affichés.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Stock chart */}
@@ -244,5 +293,32 @@ function Empty({ text }: { text: string }) {
       <Package className="h-8 w-8 opacity-20" />
       <p className="text-sm">{text}</p>
     </div>
+  )
+}
+
+function LotRow({ lot, unit }: { lot: InventoryLot; unit: string }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const daysUntil = Math.ceil((new Date(lot.expiry_date).getTime() - new Date(today).getTime()) / 86400000)
+  const expired  = daysUntil < 0
+  const expiring = !expired && daysUntil <= 60
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{lot.manufacturer}</TableCell>
+      <TableCell className={cn('tabular-nums', expired ? 'text-destructive' : expiring ? 'text-amber-600' : 'text-muted-foreground')}>
+        {format(parseISO(lot.expiry_date), 'd MMM yyyy')}
+        {expired  && <span className="ml-1 text-xs">(expiré)</span>}
+        {expiring && !expired && <span className="ml-1 text-xs">(dans {daysUntil}j)</span>}
+      </TableCell>
+      <TableCell className="text-muted-foreground">{lot.lot_number ?? '—'}</TableCell>
+      <TableCell className="text-right font-semibold tabular-nums">{lot.quantity_remaining} {unit}</TableCell>
+      <TableCell>
+        {expired
+          ? <Badge variant="destructive" className="text-xs">Expiré</Badge>
+          : expiring
+          ? <Badge className="text-xs bg-amber-500 hover:bg-amber-500/90">Expire bientôt</Badge>
+          : <Badge variant="outline" className="text-xs">OK</Badge>}
+      </TableCell>
+    </TableRow>
   )
 }

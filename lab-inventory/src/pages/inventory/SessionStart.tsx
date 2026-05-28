@@ -93,6 +93,7 @@ export function SessionStart() {
           id: i.id,
           name: i.name,
           category: i.category,
+          track_lots: i.track_lots,
         })),
       })
       toast.success('Inventory session started')

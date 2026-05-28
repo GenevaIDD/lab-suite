@@ -353,7 +353,7 @@ export function useSessionEntries(sessionId: string | undefined) {
     queryFn: async (): Promise<InventorySessionEntry[]> => {
       const { data, error } = await db
         .from('inventory_session_entries')
-        .select('*, item_type:item_types(*)')
+        .select('*, item_type:item_types(*), lot:lots(*)')
         .eq('session_id', sessionId!)
         .order('sort_order')
       if (error) throw error

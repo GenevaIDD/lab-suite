@@ -189,7 +189,7 @@ export function useStartSession() {
     }: {
       targetDate: string
       startedBy: string | null
-      itemTypes: Array<{ id: string; name: string; category: string }>
+      itemTypes: Array<{ id: string; name: string; category: string; track_lots: boolean }>
     }): Promise<InventorySession> => {
       const { data: session, error: sessionError } = await db
         .from('inventory_sessions')
@@ -198,17 +198,27 @@ export function useStartSession() {
         .single()
       if (sessionError) throw sessionError
 
-      // Fixed category order matching the lab's physical organisation
+      // For tracked items, fetch active lots
+      const trackedIds = itemTypes.filter(i => i.track_lots).map(i => i.id)
+      let lotsByItem = new Map<string, Array<{ id: string; expiry_date: string }>>()
+      if (trackedIds.length > 0) {
+        const { data: lots } = await db
+          .from('lots')
+          .select('id, item_type_id, expiry_date')
+          .in('item_type_id', trackedIds)
+          .is('exhausted_at', null)
+          .order('expiry_date')
+        for (const lot of (lots ?? [])) {
+          const arr = lotsByItem.get(lot.item_type_id) ?? []
+          arr.push({ id: lot.id, expiry_date: lot.expiry_date })
+          lotsByItem.set(lot.item_type_id, arr)
+        }
+      }
+
+      // Category order
       const CATEGORY_ORDER = [
-        'surveillance clinique',
-        'milieux et chimique',
-        'culture',
-        'consomables',
-        'articles',
-        'eep',
-        'transport',
-        'accessoires de machines',
-        'autres articles',
+        'surveillance clinique', 'milieux et chimique', 'culture', 'consomables',
+        'articles', 'eep', 'transport', 'accessoires de machines', 'autres articles',
       ]
       const catIdx = (c: string) => {
         const i = CATEGORY_ORDER.indexOf(c.toLowerCase())
@@ -218,14 +228,27 @@ export function useStartSession() {
         const catDiff = catIdx(a.category) - catIdx(b.category)
         return catDiff !== 0 ? catDiff : a.name.localeCompare(b.name)
       })
-      const entries = sorted.map((item, idx) => ({
-        session_id: session.id,
-        item_type_id: item.id,
-        sort_order: idx,
-      }))
-      const { error: entriesError } = await db
-        .from('inventory_session_entries')
-        .insert(entries)
+
+      // Build entries: one per lot for tracked items, one per item for others
+      const entries: Array<{ session_id: string; item_type_id: string; lot_id: string | null; sort_order: number }> = []
+      let order = 0
+      for (const item of sorted) {
+        if (!item.track_lots) {
+          entries.push({ session_id: session.id, item_type_id: item.id, lot_id: null, sort_order: order++ })
+        } else {
+          const lots = lotsByItem.get(item.id) ?? []
+          if (lots.length === 0) {
+            // No active lots — include placeholder so item still appears
+            entries.push({ session_id: session.id, item_type_id: item.id, lot_id: null, sort_order: order++ })
+          } else {
+            for (const lot of lots) {
+              entries.push({ session_id: session.id, item_type_id: item.id, lot_id: lot.id, sort_order: order++ })
+            }
+          }
+        }
+      }
+
+      const { error: entriesError } = await db.from('inventory_session_entries').insert(entries)
       if (entriesError) throw entriesError
 
       return session as InventorySession
@@ -307,10 +330,17 @@ export function useCompleteSession() {
     }: {
       sessionId: string
       targetDate: string
-      entries: Array<{ item_type_id: string; counted_quantity: number | null; entered_by: string | null; notes: string | null }>
+      entries: Array<{
+        item_type_id: string
+        lot_id: string | null
+        counted_quantity: number | null
+        entered_by: string | null
+        notes: string | null
+      }>
     }) => {
+      // Non-lot entries → stock_counts (existing path)
       const counts = entries
-        .filter((e) => e.counted_quantity !== null)
+        .filter((e) => e.counted_quantity !== null && e.lot_id === null)
         .map((e) => ({
           item_type_id: e.item_type_id,
           quantity: e.counted_quantity!,
@@ -318,10 +348,20 @@ export function useCompleteSession() {
           counted_by: e.entered_by,
           notes: e.notes,
         }))
-
       if (counts.length > 0) {
         const { error: countError } = await supabase.from('stock_counts').insert(counts as never)
         if (countError) throw countError
+      }
+
+      // Lot entries → update lots.quantity_remaining (auto-exhaust on 0)
+      const lotEntries = entries.filter(e => e.lot_id !== null && e.counted_quantity !== null)
+      for (const e of lotEntries) {
+        const exhausted = e.counted_quantity === 0
+        const { error: lotError } = await db.from('lots').update({
+          quantity_remaining: e.counted_quantity!,
+          exhausted_at: exhausted ? new Date().toISOString() : null,
+        }).eq('id', e.lot_id!)
+        if (lotError) throw lotError
       }
 
       const { error } = await db
@@ -333,6 +373,7 @@ export function useCompleteSession() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inventory_sessions'] })
       qc.invalidateQueries({ queryKey: ['current_stock'] })
+      qc.invalidateQueries({ queryKey: ['lots'] })
     },
   })
 }

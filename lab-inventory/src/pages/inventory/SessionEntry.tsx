@@ -105,6 +105,7 @@ export function SessionEntry() {
         targetDate: session.target_date,
         entries: entries.map((e) => ({
           item_type_id: e.item_type_id,
+          lot_id: e.lot_id ?? null,
           counted_quantity: e.counted_quantity,
           entered_by: e.entered_by,
           notes: e.notes,
@@ -240,14 +241,25 @@ export function SessionEntry() {
           <CardContent className="pt-6 space-y-4">
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                {currentIdx + 1} of {entries.length} — {current.item_type?.category}
+                {currentIdx + 1} / {entries.length} — {current.item_type?.category}
               </p>
               <h2 className="text-2xl font-bold mt-1">{current.item_type?.name}</h2>
+              {current.lot && (
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-sm text-muted-foreground">{current.lot.manufacturer}</span>
+                  <span className="text-xs bg-muted rounded px-2 py-0.5">
+                    Exp. {format(parseISO(current.lot.expiry_date), 'd MMM yyyy')}
+                  </span>
+                  {current.lot.lot_number && (
+                    <span className="text-xs text-muted-foreground">Lot {current.lot.lot_number}</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
               <label htmlFor="qty" className="text-sm font-medium">
-                Quantity counted ({current.item_type?.unit})
+                Quantité comptée ({current.item_type?.unit})
               </label>
               <Input
                 ref={inputRef}
