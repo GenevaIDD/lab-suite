@@ -25,6 +25,7 @@ export function ItemEdit() {
   const [category, setCategory] = useState('')
   const [unit, setUnit] = useState('')
   const [minThreshold, setMinThreshold] = useState('0')
+  const [trackLots, setTrackLots] = useState(false)
   const [notes, setNotes] = useState('')
 
   // Populate once item loads
@@ -34,6 +35,7 @@ export function ItemEdit() {
       setCategory(item.category)
       setUnit(item.unit)
       setMinThreshold(String(item.min_threshold))
+      setTrackLots(item.track_lots ?? false)
       setNotes(item.notes ?? '')
     }
   }, [item])
@@ -51,6 +53,7 @@ export function ItemEdit() {
         category,
         unit,
         min_threshold: Number(minThreshold) || 0,
+        track_lots: trackLots,
         notes: notes || null,
       })
       toast.success('Article mis à jour')
@@ -125,6 +128,23 @@ export function ItemEdit() {
                 value={minThreshold}
                 onChange={(e) => setMinThreshold(e.target.value)}
               />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={trackLots}
+                  onChange={e => setTrackLots(e.target.checked)}
+                  className="mt-0.5 rounded"
+                />
+                <div>
+                  <p className="text-sm font-medium">Suivi par lot (dates d'expiration)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Activer pour les réactifs, milieux et diagnostiques avec date d'expiration.
+                    Chaque livraison demandera : fabricant (requis), date d'expiration (requise), numéro de lot (optionnel).
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         </CardContent>
