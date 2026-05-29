@@ -1,17 +1,9 @@
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Wifi, WifiOff, CloudUpload, LogOut } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useAuth, signOut, ROLE_LABELS } from '@/lib/auth'
@@ -27,15 +19,30 @@ export function AppHeader({ title }: AppHeaderProps) {
   const { profile } = useAuth()
   const { lang, setLang, t } = useLang()
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const initials = profile?.full_name
-    .split(' ')
+    ?.split(' ')
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2) ?? '?'
 
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
   async function handleSignOut() {
+    setOpen(false)
     try {
       await signOut()
       navigate('/login', { replace: true })
@@ -78,31 +85,44 @@ export function AppHeader({ title }: AppHeaderProps) {
           </Badge>
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="rounded-full" />}>
+        {/* Account menu — plain CSS dropdown, no Base UI */}
+        <div ref={menuRef} className="relative">
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Account menu"
+            aria-expanded={open}
+          >
             <Avatar className="h-7 w-7">
               <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                 {initials}
               </AvatarFallback>
             </Avatar>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel className="font-normal">
-              <p className="text-sm font-medium truncate">{profile?.full_name ?? 'User'}</p>
-              <p className="text-xs text-muted-foreground truncate">{profile?.email ?? ''}</p>
-              {profile?.role && (
-                <Badge variant="secondary" className="mt-1 text-xs">
-                  {ROLE_LABELS[profile.role] ?? profile.role}
-                </Badge>
-              )}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive gap-2 cursor-pointer">
-              <LogOut className="h-4 w-4" />
-              {t('header.signout')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </button>
+
+          {open && (
+            <div className="absolute right-0 top-full mt-2 w-52 rounded-lg border bg-popover shadow-md z-50">
+              {/* User info */}
+              <div className="px-3 py-2.5 border-b">
+                <p className="text-sm font-medium truncate">{profile?.full_name ?? 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{profile?.email ?? ''}</p>
+                {profile?.role && (
+                  <Badge variant="secondary" className="mt-1 text-xs">
+                    {ROLE_LABELS[profile.role] ?? profile.role}
+                  </Badge>
+                )}
+              </div>
+              {/* Sign out */}
+              <button
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                {t('header.signout')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )
