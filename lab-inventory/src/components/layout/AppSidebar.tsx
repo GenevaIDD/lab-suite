@@ -29,17 +29,10 @@ export function AppSidebar() {
   ]
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-4 py-4">
-        <div className="flex flex-col items-center gap-1.5">
-          <img
-            src="/logo.svg"
-            alt="Geneva Disease Dynamics"
-            className="w-full max-w-[160px]"
-          />
-          <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
-            Uvira Lab Management
-          </p>
-        </div>
+      <SidebarHeader className="border-b px-4 py-3">
+        <p className="text-sm font-semibold text-center tracking-wide">
+          Uvira Lab Management
+        </p>
       </SidebarHeader>
 
       <SidebarContent>
@@ -70,8 +63,21 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t px-4 py-3">
-        <p className="text-xs text-muted-foreground">{t('nav.location')}</p>
+      <SidebarFooter className="border-t px-3 py-4">
+        <p className="text-xs text-muted-foreground text-center mb-3">{t('nav.location')}</p>
+        <div className="flex items-center justify-center gap-4">
+          <img
+            src="/logo.svg"
+            alt="Geneva Disease Dynamics"
+            className="h-8 w-auto"
+          />
+          <div className="w-px h-8 bg-border" />
+          <img
+            src="/LSHTM-logo-bw.webp"
+            alt="London School of Hygiene & Tropical Medicine"
+            className="h-8 w-auto"
+          />
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

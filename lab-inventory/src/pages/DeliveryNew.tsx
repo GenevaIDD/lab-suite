@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { todayStr } from '@/lib/utils'
 import { qtyStep } from '@/lib/utils'
 import { useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
@@ -165,7 +166,7 @@ export function DeliveryNew() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="rec-at">Reçu le *</Label>
-              <Input id="rec-at" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} required />
+              <Input id="rec-at" type="date" max={todayStr()} value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} required />
             </div>
             <div className="space-y-1">
               <Label htmlFor="rec-by">Reçu par</Label>

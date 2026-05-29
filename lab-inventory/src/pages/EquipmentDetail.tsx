@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2 } from 'lucide-react'
 import { useAuth, isAdmin } from '@/lib/auth'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -19,9 +19,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs } from '@/lib/queries'
 import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
-import { useLogMaintenance, useRetireEquipment, useUnretireEquipment } from '@/lib/mutations'
+import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog } from '@/lib/mutations'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn, todayStr } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
 
 export function EquipmentDetail() {
@@ -146,21 +146,15 @@ export function EquipmentDetail() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Maintenance history</CardTitle>
+          <CardTitle className="text-base">Historique de maintenance</CardTitle>
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No maintenance has been logged yet.</p>
+            <p className="text-sm text-muted-foreground">Aucune maintenance enregistrée.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {logs.map((log) => (
-                <li key={log.id} className="border-l-2 border-primary/30 pl-3 py-1">
-                  <p className="text-sm font-medium">
-                    {format(parseISO(log.performed_at), 'd MMM yyyy')}
-                    {log.performed_by && <span className="text-muted-foreground font-normal"> · by {log.performed_by}</span>}
-                  </p>
-                  {log.notes && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{log.notes}</p>}
-                </li>
+                <MaintenanceLogRow key={log.id} log={log} />
               ))}
             </ul>
           )}
@@ -235,12 +229,16 @@ function LogMaintenanceDialog({ schedule }: { schedule: MaintenanceSchedule }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!performedBy.trim()) {
+      toast.error('Le champ "Effectué par" est requis')
+      return
+    }
     try {
       await logMutation.mutateAsync({
         schedule_id: schedule.id,
         equipment_id: schedule.equipment_id,
         performed_at: performedAt,
-        performed_by: performedBy || null,
+        performed_by: performedBy,
         notes: notes || null,
         next_due: nextDue(performedAt),
       })
@@ -271,11 +269,11 @@ function LogMaintenanceDialog({ schedule }: { schedule: MaintenanceSchedule }) {
           <div className="space-y-3 py-3">
             <div className="space-y-1">
               <Label htmlFor="perf-at">Performed on</Label>
-              <Input id="perf-at" type="date" value={performedAt} onChange={(e) => setPerformedAt(e.target.value)} required />
+              <Input id="perf-at" type="date" max={todayStr()} value={performedAt} onChange={(e) => setPerformedAt(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="perf-by">Performed by</Label>
-              <Input id="perf-by" value={performedBy} onChange={(e) => setPerformedBy(e.target.value)} placeholder="Name (optional)" />
+              <Label htmlFor="perf-by">Effectué par *</Label>
+              <Input id="perf-by" value={performedBy} onChange={(e) => setPerformedBy(e.target.value)} placeholder="Nom" required />
             </div>
             <div className="space-y-1">
               <Label htmlFor="perf-notes">Notes</Label>
@@ -325,7 +323,7 @@ function RetireDialog({ equipmentId }: { equipmentId: string }) {
           <div className="space-y-3 py-3">
             <div className="space-y-1">
               <Label htmlFor="ret-at">Date de retrait</Label>
-              <Input id="ret-at" type="date" value={retiredAt} onChange={e => setRetiredAt(e.target.value)} required />
+              <Input id="ret-at" type="date" max={todayStr()} value={retiredAt} onChange={e => setRetiredAt(e.target.value)} required />
             </div>
             <div className="space-y-1">
               <Label htmlFor="ret-dest">Destination * <span className="text-xs text-muted-foreground font-normal">(ex: mise au rebut, don, transfert)</span></Label>
@@ -365,5 +363,69 @@ function UnretireButton({ equipmentId }: { equipmentId: string }) {
       {unretire.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1" />}
       Remettre en service
     </Button>
+  )
+}
+
+import type { MaintenanceLog } from '@/types/database'
+
+function MaintenanceLogRow({ log }: { log: MaintenanceLog }) {
+  const { profile } = useAuth()
+  const canDelete = profile?.role === 'admin' || profile?.role === 'lab_manager'
+  const deleteLog = useDeleteMaintenanceLog()
+  const [editing, setEditing] = useState(false)
+  const [editNotes, setEditNotes] = useState(log.notes ?? '')
+  const [editBy, setEditBy] = useState(log.performed_by ?? '')
+
+  async function handleDelete() {
+    if (!confirm('Supprimer cet enregistrement de maintenance ?')) return
+    try {
+      await deleteLog.mutateAsync({ id: log.id, equipment_id: log.equipment_id })
+      toast.success('Enregistrement supprimé')
+    } catch (err) { toast.error(`Erreur : ${(err as Error).message}`) }
+  }
+
+  return (
+    <li className="border-l-2 border-primary/30 pl-3 py-1 group">
+      {editing ? (
+        <div className="space-y-2">
+          <Input
+            value={editBy}
+            onChange={e => setEditBy(e.target.value)}
+            placeholder="Effectué par"
+            className="h-7 text-sm"
+          />
+          <Textarea
+            value={editNotes}
+            onChange={e => setEditNotes(e.target.value)}
+            rows={2}
+            className="text-sm"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setEditing(false)}>Annuler</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium">
+              {format(parseISO(log.performed_at), 'd MMM yyyy')}
+              {log.performed_by && <span className="text-muted-foreground font-normal"> · {log.performed_by}</span>}
+            </p>
+            {log.notes && <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{log.notes}</p>}
+          </div>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleteLog.isPending}
+              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted text-destructive transition-opacity shrink-0"
+              title="Supprimer"
+            >
+              {deleteLog.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
   )
 }

@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Today's date as YYYY-MM-DD — use as max on date inputs that must not be in the future */
+export function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 // Units that use decimal quantities (continuous measures)
 const DECIMAL_UNITS = ['ml', 'ml.', 'mL', 'l', 'l.', 'litre', 'litres', 'kg', 'g', 'g.', 'mg', 'µl', 'µL']
 

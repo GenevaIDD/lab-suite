@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { enqueue } from './offline-queue'
-import type { Equipment, MaintenanceSchedule, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry } from '@/types/database'
+import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry } from '@/types/database'
 
 type Insert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>
 
@@ -108,6 +108,28 @@ export function useUpdateEquipment() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['equipment'] })
       qc.invalidateQueries({ queryKey: ['equipment', vars.id] })
+    },
+  })
+}
+
+export function useUpdateMaintenanceLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<MaintenanceLog> & { id: string }) =>
+      tryWriteOrQueue<MaintenanceLog>('update', 'maintenance_logs', payload, id),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['maintenance_logs', vars.equipment_id] })
+    },
+  })
+}
+
+export function useDeleteMaintenanceLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id }: { id: string; equipment_id: string }) =>
+      tryWriteOrQueue('delete', 'maintenance_logs', {}, id),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['maintenance_logs', vars.equipment_id] })
     },
   })
 }

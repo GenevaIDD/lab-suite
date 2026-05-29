@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
+import { todayStr } from '@/lib/utils'
 import { ArrowLeft, ClipboardList, Loader2 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Button } from '@/components/ui/button'
@@ -185,6 +186,7 @@ export function SessionStart() {
             <Input
               id="date"
               type="date"
+              max={todayStr()}
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
             />
