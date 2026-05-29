@@ -13,9 +13,10 @@ export interface SourceDraft {
 interface Props {
   sources: SourceDraft[]
   onChange: (sources: SourceDraft[]) => void
+  trackLots?: boolean
 }
 
-export function SourceEditor({ sources, onChange }: Props) {
+export function SourceEditor({ sources, onChange, trackLots = false }: Props) {
   const [draft, setDraft] = useState<SourceDraft>({ manufacturer: '', supplier: '' })
 
   function add() {
@@ -79,7 +80,9 @@ export function SourceEditor({ sources, onChange }: Props) {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Stock is pooled across all sources for this item type. Sources are recorded per delivery.
+        {trackLots
+          ? 'Pour les articles avec suivi par lot, le fabricant est requis à chaque livraison et fait partie de l\'identité du lot (fabricant + date d\'expiration).'
+          : 'Le stock est mutualisé entre tous les fabricants. Les sources sont enregistrées par livraison.'}
       </p>
     </div>
   )

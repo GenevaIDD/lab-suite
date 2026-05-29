@@ -100,6 +100,20 @@ export function useCreateItemSource() {
   })
 }
 
+export function useDeleteItemSource() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; itemTypeId: string }) => {
+      const { error } = await supabase.from('item_sources' as never).delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['item_sources', vars.itemTypeId] })
+      qc.invalidateQueries({ queryKey: ['item_sources', 'all'] })
+    },
+  })
+}
+
 export function useUpdateEquipment() {
   const qc = useQueryClient()
   return useMutation({
@@ -108,6 +122,35 @@ export function useUpdateEquipment() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['equipment'] })
       qc.invalidateQueries({ queryKey: ['equipment', vars.id] })
+    },
+  })
+}
+
+export function useAddObservation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { equipment_id: string; note: string; created_by: string | null }) => {
+      const { data, error } = await supabase.from('equipment_observations' as never).insert(payload as never).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['equipment_observations', vars.equipment_id] })
+      qc.invalidateQueries({ queryKey: ['equipment_observations', 'all'] })
+    },
+  })
+}
+
+export function useDeleteObservation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; equipment_id: string }) => {
+      const { error } = await supabase.from('equipment_observations' as never).delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['equipment_observations', vars.equipment_id] })
+      qc.invalidateQueries({ queryKey: ['equipment_observations', 'all'] })
     },
   })
 }

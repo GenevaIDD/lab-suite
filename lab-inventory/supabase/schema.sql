@@ -380,6 +380,30 @@ create policy "admin+lab_manager+tech write entries" on inventory_session_entrie
   );
 
 -- ============================================================
+-- Equipment Observations
+-- Informal notes staff can log e.g. "freezer making noise".
+-- Separate from formal maintenance logs.
+-- ============================================================
+
+create table equipment_observations (
+  id           uuid primary key default uuid_generate_v4(),
+  equipment_id uuid not null references equipment(id) on delete cascade,
+  note         text not null,
+  created_by   text,
+  created_at   timestamptz not null default now()
+);
+
+create index eo_equipment_idx on equipment_observations(equipment_id);
+create index eo_created_idx   on equipment_observations(created_at desc);
+
+alter table equipment_observations enable row level security;
+create policy "authenticated read obs"       on equipment_observations for select using (auth.role() = 'authenticated');
+create policy "authenticated write obs"      on equipment_observations for insert with check (auth.role() = 'authenticated');
+create policy "admin+lab_manager delete obs" on equipment_observations for delete using (
+  exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+);
+
+-- ============================================================
 -- Equipment Documents
 -- ============================================================
 

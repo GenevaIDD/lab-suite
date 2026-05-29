@@ -4,8 +4,8 @@ import { format, differenceInDays, parseISO } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import { Wrench, Package, AlertTriangle, Clock, Loader2, CheckCircle2 } from 'lucide-react'
-import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock, useCategoryCoverage } from '@/lib/queries'
+import { Wrench, Package, AlertTriangle, Clock, Loader2, CheckCircle2, MessageSquare } from 'lucide-react'
+import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock, useCategoryCoverage, useEquipmentObservations } from '@/lib/queries'
 import { useLang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { MaintenanceSchedule, Equipment } from '@/types/database'
@@ -16,6 +16,7 @@ interface StockRow {
   unit: string
   min_threshold: number
   quantity: number
+  last_counted_at: string | null
 }
 
 export function Dashboard() {
@@ -25,6 +26,7 @@ export function Dashboard() {
   const { data: itemTypes = [] } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
   const { data: coverage = [], isLoading: loadingCoverage } = useCategoryCoverage(itemTypes)
+  const { data: recentObs = [] } = useEquipmentObservations(undefined, 5)
 
   const today = new Date()
 
@@ -46,9 +48,12 @@ export function Dashboard() {
   }, [schedules, equipment])
 
   const lowStock = useMemo(() => {
-    const stockByItem = new Map(stockRows.map((r) => [r.item_type_id, Number(r.quantity)]))
+    const stockByItem = new Map(stockRows.map((r) => [r.item_type_id, r]))
     return itemTypes
-      .map((i) => ({ ...i, quantity: stockByItem.get(i.id) ?? 0 }))
+      .map((i) => {
+        const row = stockByItem.get(i.id)
+        return { ...i, quantity: Number(row?.quantity ?? 0), last_counted_at: row?.last_counted_at ?? null }
+      })
       .filter((i) => i.quantity < i.min_threshold)
   }, [itemTypes, stockRows])
 
@@ -170,6 +175,11 @@ export function Dashboard() {
                     <p className="text-sm font-medium truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.quantity} {item.unit} · min {item.min_threshold}
+                      {item.last_counted_at && (
+                        <span className="text-muted-foreground/60">
+                          {' '}· compté {format(parseISO(item.last_counted_at), 'd MMM')}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <Badge variant="destructive" className="text-xs shrink-0">{t('inv.status.low')}</Badge>
@@ -184,6 +194,37 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent observations */}
+      {recentObs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              Observations récentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {recentObs.map((obs) => (
+                <li key={obs.id}>
+                  <Link
+                    to={`/equipment/${obs.equipment_id}`}
+                    className="block rounded-md border px-3 py-2 hover:bg-muted/30 transition-colors"
+                  >
+                    <p className="text-sm font-medium truncate">{obs.equipment?.name ?? '—'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{obs.note}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {format(parseISO(obs.created_at), 'd MMM yyyy')}
+                      {obs.created_by && ` · ${obs.created_by}`}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Coverage widget */}
       <Card>

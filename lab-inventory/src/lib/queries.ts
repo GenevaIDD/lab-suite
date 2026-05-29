@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation } from '@/types/database'
 
 export function useEquipmentList(includeRetired = false) {
   return useQuery({
@@ -147,6 +147,22 @@ export function useAllActiveLots() {
         .order('expiry_date')
       if (error) throw error
       return (data ?? []) as InventoryLot[]
+    },
+  })
+}
+
+export function useEquipmentObservations(equipmentId?: string, limit = 10) {
+  return useQuery({
+    queryKey: ['equipment_observations', equipmentId ?? 'all', limit],
+    queryFn: async (): Promise<EquipmentObservation[]> => {
+      let q = db.from('equipment_observations')
+        .select('*, equipment:equipment(id,name)')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (equipmentId) q = q.eq('equipment_id', equipmentId)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as EquipmentObservation[]
     },
   })
 }

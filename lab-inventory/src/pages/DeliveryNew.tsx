@@ -127,27 +127,31 @@ export function DeliveryNew() {
 
           {itemTypeId && (
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="source">Fabricant / source {isTracked && <span className="text-destructive">*</span>}</Label>
+              <Label htmlFor="source">Fabricant / source {isTracked && <span className="text-destructive">*</span>}</Label>
+              <div className="flex gap-2">
+                <Select value={itemSourceId} onValueChange={(v) => setItemSourceId(v ?? '')}>
+                  <SelectTrigger id="source" className="w-full">
+                    <SelectValue placeholder="Sélectionner un fabricant…" />
+                  </SelectTrigger>
+                  <SelectContent className="min-w-[280px]">
+                    {sources.length === 0 ? (
+                      <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                        Aucun fabricant enregistré — ajoutez-en un →
+                      </div>
+                    ) : (
+                      sources.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.manufacturer}{s.supplier ? ` (via ${s.supplier})` : ''}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
                 <NewSourceDialog itemTypeId={itemTypeId} onCreated={setItemSourceId} />
               </div>
-              <Select value={itemSourceId} onValueChange={(v) => setItemSourceId(v ?? '')}>
-                <SelectTrigger id="source">
-                  <SelectValue placeholder="Sélectionner un fabricant (optionnel)">
-                    {(v: string | null) => {
-                      const s = sources.find((src) => src.id === v)
-                      return s ? `${s.manufacturer}${s.supplier ? ` (via ${s.supplier})` : ''}` : ''
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {sources.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.manufacturer}{s.supplier ? ` (via ${s.supplier})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-xs text-muted-foreground">
+                Les fabricants ajoutés ici seront aussi visibles sur la fiche de l'article.
+              </p>
             </div>
           )}
 
@@ -222,9 +226,9 @@ function NewSourceDialog({ itemTypeId, onCreated }: { itemTypeId: string; onCrea
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button type="button" variant="ghost" size="xs">
-            <Plus className="h-3 w-3 mr-1" />
-            New
+          <Button type="button" variant="outline" size="sm">
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Nouveau fabricant
           </Button>
         }
       />

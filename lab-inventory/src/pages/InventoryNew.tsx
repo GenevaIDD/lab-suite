@@ -208,7 +208,7 @@ export function InventoryNew() {
           <CardTitle className="text-base">Fabricants / fournisseurs</CardTitle>
         </CardHeader>
         <CardContent>
-          <SourceEditor sources={sources} onChange={setSources} />
+          <SourceEditor sources={sources} onChange={setSources} trackLots={trackLots} />
         </CardContent>
       </Card>
 

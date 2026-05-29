@@ -155,6 +155,15 @@ export interface InventorySessionEntry {
   lot?: InventoryLot
 }
 
+export interface EquipmentObservation {
+  id: string
+  equipment_id: string
+  note: string
+  created_by: string | null
+  created_at: string
+  equipment?: Equipment
+}
+
 export interface EquipmentDocument {
   id: string
   equipment_id: string

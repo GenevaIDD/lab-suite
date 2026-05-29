@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Plus, Trash2 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SelectOrNew } from '@/components/ui/SelectOrNew'
-import { useItemType, useDistinctCategories, useDistinctUnits } from '@/lib/queries'
-import { useUpdateItemType } from '@/lib/mutations'
+import { useItemType, useDistinctCategories, useDistinctUnits, useItemSources } from '@/lib/queries'
+import { useUpdateItemType, useCreateItemSource, useDeleteItemSource } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import type { ItemSource } from '@/types/database'
 
 export function ItemEdit() {
   const { id } = useParams<{ id: string }>()
@@ -151,6 +152,13 @@ export function ItemEdit() {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle className="text-base">Fabricants / fournisseurs</CardTitle></CardHeader>
+        <CardContent>
+          <SourcesManager itemTypeId={id!} />
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle className="text-base">Remarques</CardTitle></CardHeader>
         <CardContent>
           <Textarea
@@ -174,5 +182,100 @@ export function ItemEdit() {
         </Button>
       </div>
     </form>
+  )
+}
+
+// ── Sources manager (live-save, outside the main form submit) ──────────────
+
+function SourcesManager({ itemTypeId }: { itemTypeId: string }) {
+  const { data: sources = [], isLoading } = useItemSources(itemTypeId)
+  const createSource = useCreateItemSource()
+  const deleteSource = useDeleteItemSource()
+  const [manufacturer, setManufacturer] = useState('')
+  const [supplier, setSupplier] = useState('')
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault()
+    if (!manufacturer.trim()) return
+    try {
+      await createSource.mutateAsync({
+        item_type_id: itemTypeId,
+        manufacturer: manufacturer.trim(),
+        supplier: supplier.trim() || null,
+        notes: null,
+      })
+      setManufacturer('')
+      setSupplier('')
+      toast.success('Fabricant ajouté')
+    } catch (err) {
+      toast.error(`Erreur : ${(err as Error).message}`)
+    }
+  }
+
+  async function remove(source: ItemSource) {
+    if (!confirm(`Supprimer "${source.manufacturer}" ?`)) return
+    try {
+      await deleteSource.mutateAsync({ id: source.id, itemTypeId })
+      toast.success('Fabricant supprimé')
+    } catch (err) {
+      toast.error(`Erreur : ${(err as Error).message}`)
+    }
+  }
+
+  if (isLoading) return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+
+  return (
+    <div className="space-y-3">
+      {sources.length > 0 && (
+        <ul className="space-y-2">
+          {sources.map((s) => (
+            <li key={s.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+              <div className="text-sm">
+                <span className="font-medium">{s.manufacturer}</span>
+                {s.supplier && <span className="text-muted-foreground"> · via {s.supplier}</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(s)}
+                disabled={deleteSource.isPending}
+                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                title="Supprimer"
+              >
+                {deleteSource.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-end">
+        <div className="space-y-1">
+          <Label htmlFor="src-mfr" className="text-xs">Fabricant</Label>
+          <Input
+            id="src-mfr"
+            value={manufacturer}
+            onChange={(e) => setManufacturer(e.target.value)}
+            placeholder="ex : Eppendorf"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="src-sup" className="text-xs">Fournisseur (optionnel)</Label>
+          <Input
+            id="src-sup"
+            value={supplier}
+            onChange={(e) => setSupplier(e.target.value)}
+            placeholder="ex : distributeur local"
+          />
+        </div>
+        <Button type="submit" variant="outline" size="sm" disabled={!manufacturer.trim() || createSource.isPending} className="self-end">
+          {createSource.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+          Ajouter
+        </Button>
+      </form>
+
+      <p className="text-xs text-muted-foreground">
+        Ces fabricants apparaissent dans le formulaire de livraison pour cet article.
+      </p>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare } from 'lucide-react'
 import { useAuth, isAdmin } from '@/lib/auth'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -17,9 +17,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs } from '@/lib/queries'
+import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs, useEquipmentObservations } from '@/lib/queries'
 import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
-import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog } from '@/lib/mutations'
+import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn, todayStr } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
@@ -31,6 +31,7 @@ export function EquipmentDetail() {
   const { data: equipment, isLoading, error } = useEquipment(id)
   const { data: schedules = [] } = useMaintenanceSchedules(id)
   const { data: logs = [] } = useMaintenanceLogs(id)
+  const { data: observations = [] } = useEquipmentObservations(id)
 
   if (isLoading) {
     return (
@@ -143,6 +144,8 @@ export function EquipmentDetail() {
           )}
         </CardContent>
       </Card>
+
+      <ObservationsCard equipmentId={equipment.id} observations={observations} />
 
       <Card>
         <CardHeader>
@@ -366,7 +369,113 @@ function UnretireButton({ equipmentId }: { equipmentId: string }) {
   )
 }
 
-import type { MaintenanceLog } from '@/types/database'
+import type { MaintenanceLog, EquipmentObservation } from '@/types/database'
+
+function ObservationsCard({ equipmentId, observations }: { equipmentId: string; observations: EquipmentObservation[] }) {
+  const { profile } = useAuth()
+  const canDelete = profile?.role === 'admin' || profile?.role === 'lab_manager'
+  const [note, setNote] = useState('')
+  const addObs = useAddObservation()
+  const deleteObs = useDeleteObservation()
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!note.trim()) return
+    try {
+      await addObs.mutateAsync({
+        equipment_id: equipmentId,
+        note: note.trim(),
+        created_by: profile?.full_name ?? null,
+      })
+      setNote('')
+      toast.success('Observation enregistrée')
+    } catch (err) {
+      toast.error(`Erreur : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          Observations
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <form onSubmit={submit} className="flex gap-2 items-end">
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Ex : le congélateur fait un bruit inhabituel…"
+            rows={2}
+            className="flex-1 text-sm resize-none"
+          />
+          <Button type="submit" size="sm" disabled={!note.trim() || addObs.isPending}>
+            {addObs.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ajouter'}
+          </Button>
+        </form>
+        {observations.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucune observation enregistrée.</p>
+        ) : (
+          <ul className="space-y-2">
+            {observations.map((obs) => (
+              <ObservationRow
+                key={obs.id}
+                obs={obs}
+                canDelete={canDelete}
+                onDelete={async () => {
+                  if (!confirm('Supprimer cette observation ?')) return
+                  try {
+                    await deleteObs.mutateAsync({ id: obs.id, equipment_id: equipmentId })
+                  } catch (err) {
+                    toast.error(`Erreur : ${(err as Error).message}`)
+                  }
+                }}
+                deleting={deleteObs.isPending}
+              />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ObservationRow({
+  obs,
+  canDelete,
+  onDelete,
+  deleting,
+}: {
+  obs: EquipmentObservation
+  canDelete: boolean
+  onDelete: () => void
+  deleting: boolean
+}) {
+  return (
+    <li className="border-l-2 border-muted pl-3 py-1 group flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-sm whitespace-pre-wrap">{obs.note}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {format(parseISO(obs.created_at), 'd MMM yyyy HH:mm')}
+          {obs.created_by && ` · ${obs.created_by}`}
+        </p>
+      </div>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleting}
+          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted text-destructive transition-opacity shrink-0 mt-0.5"
+          title="Supprimer"
+        >
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </button>
+      )}
+    </li>
+  )
+}
 
 function MaintenanceLogRow({ log }: { log: MaintenanceLog }) {
   const { profile } = useAuth()
