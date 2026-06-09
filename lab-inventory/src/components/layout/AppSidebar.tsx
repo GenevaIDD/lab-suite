@@ -78,6 +78,7 @@ export function AppSidebar() {
             className="h-8 w-auto"
           />
         </div>
+        <p className="text-[10px] text-muted-foreground/50 text-center mt-2">v{__APP_VERSION__}</p>
       </SidebarFooter>
     </Sidebar>
   )
