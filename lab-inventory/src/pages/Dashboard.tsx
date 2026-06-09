@@ -76,8 +76,8 @@ export function Dashboard() {
               {[
                 overdue.length > 0 && `${overdue.length} ${t('dash.alert.maintenance')}`,
                 lowStock.length > 0 && `${lowStock.length} ${t('dash.alert.low.stock')}`,
-                expiredLots.length > 0 && `${expiredLots.length} lot${expiredLots.length > 1 ? 's' : ''} expiré${expiredLots.length > 1 ? 's' : ''}`,
-                expiringLots.length > 0 && `${expiringLots.length} lot${expiringLots.length > 1 ? 's' : ''} expire${expiringLots.length > 1 ? 'nt' : ''} bientôt`,
+                expiredLots.length > 0 && `${expiredLots.length} ${t('dash.alert.expired')}`,
+                expiringLots.length > 0 && `${expiringLots.length} ${t('dash.alert.expiring')}`,
               ].filter(Boolean).join(' · ')}
             </p>
           </div>
@@ -117,10 +117,10 @@ export function Dashboard() {
           href="/inventory"
         />
         <StatCard
-          title="Expirations"
+          title={t('dash.expiry.stat')}
           value={String(expiredLots.length + expiringLots.length)}
           icon={CalendarClock}
-          description={expiredLots.length > 0 ? `${expiredLots.length} expiré${expiredLots.length > 1 ? 's' : ''}` : 'lots dans 90 jours'}
+          description={expiredLots.length > 0 ? `${expiredLots.length} ${t('dash.expiry.stat.expired')}` : t('dash.expiry.stat.sub')}
           urgent={expiredLots.length > 0}
           href="/inventory"
         />
@@ -174,14 +174,14 @@ export function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              Expirations proches
+              {t('dash.expiry.title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {expiredLots.length === 0 && expiringLots.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                Aucun lot n'expire dans les 90 prochains jours.
+                {t('dash.expiry.ok')}
               </div>
             ) : (
               <>
