@@ -4,11 +4,12 @@ import { format, differenceInDays, parseISO } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import { Wrench, Package, AlertTriangle, Clock, Loader2, CheckCircle2, MessageSquare } from 'lucide-react'
-import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock, useCategoryCoverage, useEquipmentObservations } from '@/lib/queries'
+import { Wrench, Package, AlertTriangle, Clock, Loader2, CheckCircle2, MessageSquare, CalendarClock } from 'lucide-react'
+import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock, useCategoryCoverage, useEquipmentObservations, useAllActiveLots } from '@/lib/queries'
 import { useLang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
-import type { MaintenanceSchedule, Equipment } from '@/types/database'
+import { getExpiringLots } from '@/lib/lotCalc'
+import type { MaintenanceSchedule, Equipment, InventoryLot } from '@/types/database'
 
 interface StockRow {
   item_type_id: string
@@ -27,6 +28,11 @@ export function Dashboard() {
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
   const { data: coverage = [], isLoading: loadingCoverage } = useCategoryCoverage(itemTypes)
   const { data: recentObs = [] } = useEquipmentObservations(undefined, 5)
+  const { data: allActiveLots = [] } = useAllActiveLots()
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const expiredLots  = useMemo(() => allActiveLots.filter(l => l.expiry_date < todayStr), [allActiveLots, todayStr])
+  const expiringLots = useMemo(() => getExpiringLots(allActiveLots, 90), [allActiveLots])
 
   const today = new Date()
 
@@ -62,7 +68,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Alert strip */}
-      {(overdue.length > 0 || lowStock.length > 0) && (
+      {(overdue.length > 0 || lowStock.length > 0 || expiredLots.length > 0 || expiringLots.length > 0) && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center gap-2 text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -70,6 +76,8 @@ export function Dashboard() {
               {[
                 overdue.length > 0 && `${overdue.length} ${t('dash.alert.maintenance')}`,
                 lowStock.length > 0 && `${lowStock.length} ${t('dash.alert.low.stock')}`,
+                expiredLots.length > 0 && `${expiredLots.length} lot${expiredLots.length > 1 ? 's' : ''} expiré${expiredLots.length > 1 ? 's' : ''}`,
+                expiringLots.length > 0 && `${expiringLots.length} lot${expiringLots.length > 1 ? 's' : ''} expire${expiringLots.length > 1 ? 'nt' : ''} bientôt`,
               ].filter(Boolean).join(' · ')}
             </p>
           </div>
@@ -77,7 +85,7 @@ export function Dashboard() {
       )}
 
       {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           title={t('dash.equipment')}
           value={loading ? '…' : String(equipment.length)}
@@ -108,10 +116,18 @@ export function Dashboard() {
           urgent={lowStock.length > 0}
           href="/inventory"
         />
+        <StatCard
+          title="Expirations"
+          value={String(expiredLots.length + expiringLots.length)}
+          icon={CalendarClock}
+          description={expiredLots.length > 0 ? `${expiredLots.length} expiré${expiredLots.length > 1 ? 's' : ''}` : 'lots dans 90 jours'}
+          urgent={expiredLots.length > 0}
+          href="/inventory"
+        />
       </div>
 
       {/* Two-column detail */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
         {/* Maintenance */}
         <Card>
           <CardHeader>
@@ -147,6 +163,33 @@ export function Dashboard() {
                     status="due-soon"
                     equipmentId={eq.id}
                   />
+                ))}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Expiry alerts */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-muted-foreground" />
+              Expirations proches
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {expiredLots.length === 0 && expiringLots.length === 0 ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                Aucun lot n'expire dans les 90 prochains jours.
+              </div>
+            ) : (
+              <>
+                {expiredLots.map(lot => (
+                  <ExpiryRow key={lot.id} lot={lot} expired />
+                ))}
+                {expiringLots.map(lot => (
+                  <ExpiryRow key={lot.id} lot={lot} expired={false} />
                 ))}
               </>
             )}
@@ -310,6 +353,35 @@ function StatCard({
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
         </CardContent>
       </Card>
+    </Link>
+  )
+}
+
+function ExpiryRow({ lot, expired }: { lot: InventoryLot; expired: boolean }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const daysUntil = Math.ceil((new Date(lot.expiry_date).getTime() - new Date(today).getTime()) / 86400000)
+  const itemName = (lot as InventoryLot & { item_type?: { name: string } }).item_type?.name ?? '—'
+
+  return (
+    <Link
+      to={`/inventory/items/${lot.item_type_id}`}
+      className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 hover:bg-muted/30 transition-colors"
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-medium truncate">{itemName}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {lot.manufacturer} · {lot.quantity_remaining} {(lot as InventoryLot & { item_type?: { unit: string } }).item_type?.unit ?? ''}
+        </p>
+      </div>
+      {expired ? (
+        <Badge variant="destructive" className="text-xs shrink-0">
+          Expiré {format(parseISO(lot.expiry_date), 'd MMM')}
+        </Badge>
+      ) : (
+        <Badge className={cn('text-xs shrink-0', daysUntil <= 30 ? 'bg-destructive hover:bg-destructive/90' : 'bg-amber-500 hover:bg-amber-500/90')}>
+          {daysUntil}j
+        </Badge>
+      )}
     </Link>
   )
 }
