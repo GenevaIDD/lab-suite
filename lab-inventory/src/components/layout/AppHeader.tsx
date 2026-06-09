@@ -58,13 +58,13 @@ export function AppHeader({ title }: AppHeaderProps) {
       <h1 className="text-base font-semibold">{title}</h1>
 
       <div className="ml-auto flex items-center gap-2">
-        {/* Language toggle */}
+        {/* Language toggle — shows current language; click to switch */}
         <button
           onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
           className="text-xs font-medium text-muted-foreground hover:text-foreground border rounded px-1.5 py-0.5 transition-colors"
           title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
         >
-          {lang === 'fr' ? 'EN' : 'FR'}
+          {lang === 'fr' ? 'FR' : 'EN'}
         </button>
 
         {pendingWrites > 0 && (
