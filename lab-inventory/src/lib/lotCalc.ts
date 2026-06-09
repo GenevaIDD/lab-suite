@@ -167,7 +167,7 @@ export function buildSessionEntries(
  * Sorted by expiry_date ascending (soonest first).
  * Only includes lots with quantity_remaining > 0 (active, non-exhausted).
  */
-export function getExpiringLots(lots: Lot[], daysThreshold: number): Lot[] {
+export function getExpiringLots<T extends Lot>(lots: T[], daysThreshold: number): T[] {
   // Use YYYY-MM-DD string comparison throughout to avoid timezone issues
   const today = new Date()
   const todayStr = today.toISOString().slice(0, 10)
