@@ -17,9 +17,18 @@ delete from item_sources;
 delete from item_types;
 
 delete from maintenance_logs;
-delete from equipment_observations;
-delete from equipment_documents;
 delete from maintenance_schedules;
+
+do $$
+begin
+  if to_regclass('public.equipment_observations') is not null then
+    execute 'delete from equipment_observations';
+  end if;
+  if to_regclass('public.equipment_documents') is not null then
+    execute 'delete from equipment_documents';
+  end if;
+end $$;
+
 delete from equipment;
 
 insert into item_types (id, name, category, unit, min_threshold, track_lots) values
