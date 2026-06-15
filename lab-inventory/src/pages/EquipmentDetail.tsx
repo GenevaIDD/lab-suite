@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare } from 'lucide-react'
 import { useAuth, isAdmin } from '@/lib/auth'
+import { useLang } from '@/lib/i18n'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs, useEquipmentObservations } from '@/lib/queries'
 import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
-import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation } from '@/lib/mutations'
+import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation, useDeleteEquipment } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn, todayStr } from '@/lib/utils'
 import type { MaintenanceSchedule } from '@/types/database'
@@ -84,6 +85,7 @@ export function EquipmentDetail() {
               ? <UnretireButton equipmentId={equipment.id} />
               : <RetireDialog equipmentId={equipment.id} />
           )}
+          {admin && <DeleteEquipmentDialog equipmentId={equipment.id} equipmentName={equipment.name} />}
         </div>
       </div>
 
@@ -366,6 +368,45 @@ function UnretireButton({ equipmentId }: { equipmentId: string }) {
       {unretire.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1" />}
       Remettre en service
     </Button>
+  )
+}
+
+function DeleteEquipmentDialog({ equipmentId, equipmentName }: { equipmentId: string; equipmentName: string }) {
+  const { t } = useLang()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const deleteEquipment = useDeleteEquipment()
+
+  async function handleDelete() {
+    try {
+      await deleteEquipment.mutateAsync(equipmentId)
+      toast.success(t('equip.delete.success'))
+      navigate('/equipment')
+    } catch (err) {
+      toast.error(`Erreur : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10"><Trash2 className="h-4 w-4 mr-1" />{t('equip.delete.btn')}</Button>} />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('equip.delete.title')}</DialogTitle>
+        </DialogHeader>
+        <div className="py-3 text-sm space-y-2">
+          <p className="font-medium">{equipmentName}</p>
+          <p className="text-muted-foreground">{t('equip.delete.desc')}</p>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+          <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteEquipment.isPending}>
+            {deleteEquipment.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+            {t('equip.delete.confirm')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

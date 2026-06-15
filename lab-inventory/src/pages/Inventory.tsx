@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { useItemTypes, useDeliveries, useCurrentStock, useActiveSession } from '@/lib/queries'
 import { useLang } from '@/lib/i18n'
+import { useAuth, canManageStock } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 interface StockRow {
@@ -40,6 +41,7 @@ export function Inventory() {
   const [sortBy, setSortBy] = useState<SortKey>('name')
 
   const { t } = useLang()
+  const { profile } = useAuth()
   const { data: itemTypes = [], isLoading: loadingItems, error: itemsError } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
   const { data: deliveries = [], isLoading: loadingDeliveries } = useDeliveries()
@@ -139,9 +141,11 @@ export function Inventory() {
               {t('inv.btn.start')}
             </Link>
           )}
-          <Link to="/inventory/stock-count" className={cn(buttonVariants({ variant: 'outline' }))}>
-            {t('inv.btn.count')}
-          </Link>
+          {canManageStock(profile) && (
+            <Link to="/inventory/stock-count" className={cn(buttonVariants({ variant: 'outline' }))}>
+              {t('inv.btn.count')}
+            </Link>
+          )}
           <Link to="/inventory/delivery/new" className={cn(buttonVariants({ variant: 'outline' }))}>
             {t('inv.btn.delivery')}
           </Link>

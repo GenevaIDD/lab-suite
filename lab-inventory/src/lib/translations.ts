@@ -138,6 +138,11 @@ export const translations = {
     'equip.retire.success':   'Équipement retiré',
     'equip.unretire.success': 'Équipement remis en service',
     'equip.col.supplier':     'Fournisseur',
+    'equip.delete.btn':       'Supprimer',
+    'equip.delete.title':     'Supprimer cet équipement ?',
+    'equip.delete.desc':      'Cette action est irréversible. Les plannings de maintenance, l\'historique de maintenance, les observations et les documents associés à cet équipement seront également supprimés définitivement.',
+    'equip.delete.confirm':   'Supprimer définitivement',
+    'equip.delete.success':   'Équipement supprimé',
 
     // ── Equipment form ───────────────────────────────────────
     'equip.form.basic':       'Informations générales',
@@ -194,6 +199,7 @@ export const translations = {
     'inv.sort.category':    'Catégorie',
     'inv.sort.status':      'Stock faible d\'abord',
     'inv.sort.last.count':  'Dernier comptage (ancien d\'abord)',
+    'stockcount.no.access': 'Vous n\'avez pas accès au comptage manuel de stock. Utilisez une session d\'inventaire pour faire le comptage.',
 
     // ── Source editor ─────────────────────────────────────────
     'src.add.title':         'Ajouter un fabricant / fournisseur',
@@ -228,6 +234,11 @@ export const translations = {
     'item.col.counted.by':'Compté par',
     'item.col.rec.by':    'Reçu par',
     'item.not.found':     'Article introuvable.',
+    'item.delete.btn':       'Supprimer l\'article',
+    'item.delete.title':     'Supprimer cet article ?',
+    'item.delete.desc':      'Cette action est irréversible. Toutes les sources, livraisons, comptages et lots associés à cet article seront également supprimés définitivement.',
+    'item.delete.confirm':   'Supprimer définitivement',
+    'item.delete.success':   'Article supprimé',
 
     // ── Login ────────────────────────────────────────────────
     'login.tagline':      'Connectez-vous à votre compte',
@@ -388,6 +399,11 @@ export const translations = {
     'equip.retire.success':   'Equipment retired',
     'equip.unretire.success': 'Equipment reinstated',
     'equip.col.supplier':     'Supplier',
+    'equip.delete.btn':       'Delete',
+    'equip.delete.title':     'Delete this equipment?',
+    'equip.delete.desc':      'This action is irreversible. Maintenance schedules, maintenance history, observations, and documents linked to this equipment will also be permanently deleted.',
+    'equip.delete.confirm':   'Delete permanently',
+    'equip.delete.success':   'Equipment deleted',
 
     // ── Equipment form ───────────────────────────────────────
     'equip.form.basic':       'Basic information',
@@ -444,6 +460,7 @@ export const translations = {
     'inv.sort.category':    'Category',
     'inv.sort.status':      'Low stock first',
     'inv.sort.last.count':  'Last counted (oldest first)',
+    'stockcount.no.access': 'You don\'t have access to manual stock counts. Use an inventory session to do a count.',
 
     // ── Source editor ─────────────────────────────────────────
     'src.add.title':         'Add a manufacturer / supplier',
@@ -478,6 +495,11 @@ export const translations = {
     'item.col.counted.by':'Counted by',
     'item.col.rec.by':    'Received by',
     'item.not.found':     'Item not found.',
+    'item.delete.btn':       'Delete item',
+    'item.delete.title':     'Delete this item?',
+    'item.delete.desc':      'This action is irreversible. All sources, deliveries, stock counts, and lots linked to this item will also be permanently deleted.',
+    'item.delete.confirm':   'Delete permanently',
+    'item.delete.success':   'Item deleted',
 
     // ── Login ────────────────────────────────────────────────
     'login.tagline':      'Sign in to your account',

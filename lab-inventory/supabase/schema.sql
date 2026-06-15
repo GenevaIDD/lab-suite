@@ -10,7 +10,7 @@ create extension if not exists "uuid-ossp";
 -- Enums
 -- ============================================================
 
-create type user_role as enum ('admin', 'lab_manager', 'supervisor', 'tech');
+create type user_role as enum ('admin', 'lab_manager', 'supervisor', 'tech', 'lab_team');
 create type currency_code as enum ('USD', 'EUR', 'GBP', 'CHF', 'BIF', 'CDF');
 
 -- ============================================================
@@ -377,6 +377,62 @@ create policy "admin+lab_manager+tech write sessions" on inventory_sessions
 create policy "admin+lab_manager+tech write entries" on inventory_session_entries
   for all using (
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
+  );
+
+-- lab_team: insert-only on item_types/item_sources/equipment/maintenance_schedules
+-- (create new items & set up new equipment, but cannot edit/retire/delete);
+-- full read/write on sessions/entries/lots/stock_counts/deliveries/maintenance_logs
+-- needed to run guided inventory sessions, record deliveries and log maintenance.
+-- Ad-hoc stock counts are additionally blocked in the UI (see canManageStock).
+
+create policy "lab_team insert item_types" on item_types
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team insert item_sources" on item_sources
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team insert equipment" on equipment
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team insert schedules" on maintenance_schedules
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team write logs" on maintenance_logs
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team write deliveries" on deliveries
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team write lots" on lots
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team write sessions" on inventory_sessions
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team write entries" on inventory_session_entries
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
+  );
+
+create policy "lab_team write stock_counts" on stock_counts
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'lab_team')
   );
 
 -- ============================================================

@@ -15,12 +15,14 @@ import { useItemTypes, useCurrentStock } from '@/lib/queries'
 import { useCreateStockCount } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/lib/auth'
+import { useAuth, canManageStock } from '@/lib/auth'
+import { useLang } from '@/lib/i18n'
 
 interface StockRow { item_type_id: string; quantity: number }
 
 export function StockCountNew() {
   const navigate = useNavigate()
+  const { t } = useLang()
   const { profile } = useAuth()
   const { data: itemTypes = [], isLoading } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
@@ -54,6 +56,18 @@ export function StockCountNew() {
     } catch (err) {
       toast.error(`Save failed: ${(err as Error).message}`)
     }
+  }
+
+  if (!canManageStock(profile)) {
+    return (
+      <div className="space-y-6 max-w-xl">
+        <Link to="/inventory" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Inventory
+        </Link>
+        <p className="text-sm text-muted-foreground">{t('stockcount.no.access')}</p>
+      </div>
+    )
   }
 
   return (

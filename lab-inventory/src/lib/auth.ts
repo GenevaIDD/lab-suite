@@ -77,6 +77,10 @@ export function isAdmin(profile: Profile | null): boolean {
 }
 
 export function canEnterData(profile: Profile | null): boolean {
+  return profile?.role === 'admin' || profile?.role === 'lab_manager' || profile?.role === 'tech' || profile?.role === 'lab_team'
+}
+
+export function canManageStock(profile: Profile | null): boolean {
   return profile?.role === 'admin' || profile?.role === 'lab_manager' || profile?.role === 'tech'
 }
 
@@ -85,4 +89,5 @@ export const ROLE_LABELS: Record<string, string> = {
   lab_manager: 'Responsable de labo',
   supervisor: 'Superviseur',
   tech: 'Technicien',
+  lab_team: 'Équipe de labo',
 }

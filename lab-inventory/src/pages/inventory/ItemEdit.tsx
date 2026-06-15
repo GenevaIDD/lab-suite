@@ -7,9 +7,19 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { SelectOrNew } from '@/components/ui/SelectOrNew'
 import { useItemType, useDistinctCategories, useDistinctUnits, useItemSources } from '@/lib/queries'
-import { useUpdateItemType, useCreateItemSource, useDeleteItemSource } from '@/lib/mutations'
+import { useUpdateItemType, useCreateItemSource, useDeleteItemSource, useDeleteItemType } from '@/lib/mutations'
+import { useAuth, isAdmin } from '@/lib/auth'
+import { useLang } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { ItemSource } from '@/types/database'
@@ -17,6 +27,7 @@ import type { ItemSource } from '@/types/database'
 export function ItemEdit() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const { data: item, isLoading } = useItemType(id)
   const { data: categories = [] } = useDistinctCategories()
   const { data: units = [] } = useDistinctUnits()
@@ -181,7 +192,54 @@ export function ItemEdit() {
           Enregistrer
         </Button>
       </div>
+
+      {isAdmin(profile) && (
+        <Card className="border-destructive/30">
+          <CardContent className="flex items-center justify-between gap-3 py-4">
+            <DeleteItemDialog itemId={id!} itemName={item.name} />
+          </CardContent>
+        </Card>
+      )}
     </form>
+  )
+}
+
+function DeleteItemDialog({ itemId, itemName }: { itemId: string; itemName: string }) {
+  const { t } = useLang()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const deleteItem = useDeleteItemType()
+
+  async function handleDelete() {
+    try {
+      await deleteItem.mutateAsync(itemId)
+      toast.success(t('item.delete.success'))
+      navigate('/inventory')
+    } catch (err) {
+      toast.error(`Erreur : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button type="button" variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10"><Trash2 className="h-4 w-4 mr-1" />{t('item.delete.btn')}</Button>} />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('item.delete.title')}</DialogTitle>
+        </DialogHeader>
+        <div className="py-3 text-sm space-y-2">
+          <p className="font-medium">{itemName}</p>
+          <p className="text-muted-foreground">{t('item.delete.desc')}</p>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+          <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteItem.isPending}>
+            {deleteItem.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+            {t('item.delete.confirm')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -8,6 +8,7 @@ const ROLE_LABELS: Record<string, string> = {
   lab_manager: 'Responsable de labo',
   supervisor: 'Superviseur',
   tech: 'Technicien',
+  lab_team: 'Équipe de labo',
 }
 
 export function Users() {

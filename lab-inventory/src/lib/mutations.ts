@@ -215,6 +215,25 @@ export function useUpdateItemType() {
   })
 }
 
+export function useDeleteItemType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => tryWriteOrQueue('delete', 'item_types', {}, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['item_types'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+    },
+  })
+}
+
+export function useDeleteEquipment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => tryWriteOrQueue('delete', 'equipment', {}, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment'] }),
+  })
+}
+
 export function useCreateDelivery() {
   const qc = useQueryClient()
   return useMutation({
