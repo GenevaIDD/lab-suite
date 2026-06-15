@@ -4,6 +4,8 @@
 -- master list (category, unit, track_lots, min_threshold).
 -- WARNING: wipes item_types and all dependent records
 -- (item_sources, stock_counts, deliveries, lots, inventory sessions).
+-- ALSO WIPES ALL EQUIPMENT and its dependent records
+-- (maintenance schedules/logs, observations, documents).
 -- ============================================================
 
 delete from inventory_session_entries;
@@ -13,6 +15,12 @@ delete from stock_counts;
 delete from deliveries;
 delete from item_sources;
 delete from item_types;
+
+delete from maintenance_logs;
+delete from equipment_observations;
+delete from equipment_documents;
+delete from maintenance_schedules;
+delete from equipment;
 
 insert into item_types (id, name, category, unit, min_threshold, track_lots) values
   -- ── Surveillance clinique ─────────────────────────────,
