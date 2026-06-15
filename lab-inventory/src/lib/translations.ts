@@ -105,6 +105,8 @@ export const translations = {
     'dash.coverage.never':      'Jamais compté',
     'dash.coverage.ago':        'il y a',
     'dash.coverage.days':       'j',
+    'dash.low.stock.counted':   'compté',
+    'dash.observations.title':  'Observations récentes',
 
     // ── Equipment list ───────────────────────────────────────
     'equip.search':       'Rechercher un équipement...',
@@ -192,6 +194,16 @@ export const translations = {
     'inv.sort.category':    'Catégorie',
     'inv.sort.status':      'Stock faible d\'abord',
     'inv.sort.last.count':  'Dernier comptage (ancien d\'abord)',
+
+    // ── Source editor ─────────────────────────────────────────
+    'src.add.title':         'Ajouter un fabricant / fournisseur',
+    'src.manufacturer.placeholder': 'p.ex. Eppendorf',
+    'src.supplier.optional': 'Fournisseur (optionnel)',
+    'src.supplier.placeholder': 'p.ex. distributeur local',
+    'src.add.button':        'Ajouter une source',
+    'src.via':                'via',
+    'src.help.tracked':       'Pour les articles avec suivi par lot, le fabricant est requis à chaque livraison et fait partie de l\'identité du lot (fabricant + date d\'expiration).',
+    'src.help.pooled':        'Le stock est mutualisé entre tous les fabricants. Les sources sont enregistrées par livraison.',
 
     // ── Item detail ──────────────────────────────────────────
     'item.back':          'Inventaire',
@@ -343,6 +355,8 @@ export const translations = {
     'dash.coverage.never':      'Never counted',
     'dash.coverage.ago':        '',
     'dash.coverage.days':       'd ago',
+    'dash.low.stock.counted':   'counted',
+    'dash.observations.title':  'Recent observations',
 
     // ── Equipment list ───────────────────────────────────────
     'equip.search':       'Search equipment...',
@@ -430,6 +444,16 @@ export const translations = {
     'inv.sort.category':    'Category',
     'inv.sort.status':      'Low stock first',
     'inv.sort.last.count':  'Last counted (oldest first)',
+
+    // ── Source editor ─────────────────────────────────────────
+    'src.add.title':         'Add a manufacturer / supplier',
+    'src.manufacturer.placeholder': 'e.g. Eppendorf',
+    'src.supplier.optional': 'Supplier (optional)',
+    'src.supplier.placeholder': 'e.g. local distributor',
+    'src.add.button':        'Add Source',
+    'src.via':                'via',
+    'src.help.tracked':       'For lot-tracked items, the manufacturer is required for each delivery and is part of the lot\'s identity (manufacturer + expiry date).',
+    'src.help.pooled':        'Stock is pooled across all manufacturers. Sources are recorded per delivery.',
 
     // ── Item detail ──────────────────────────────────────────
     'item.back':          'Inventory',

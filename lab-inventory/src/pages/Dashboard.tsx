@@ -220,7 +220,7 @@ export function Dashboard() {
                       {item.quantity} {item.unit} · min {item.min_threshold}
                       {item.last_counted_at && (
                         <span className="text-muted-foreground/60">
-                          {' '}· compté {format(parseISO(item.last_counted_at), 'd MMM')}
+                          {' '}· {t('dash.low.stock.counted')} {format(parseISO(item.last_counted_at), 'd MMM')}
                         </span>
                       )}
                     </p>
@@ -244,7 +244,7 @@ export function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              Observations récentes
+              {t('dash.observations.title')}
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { useLang } from '@/lib/i18n'
 
 export interface SourceDraft {
   manufacturer: string
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function SourceEditor({ sources, onChange, trackLots = false }: Props) {
+  const { t } = useLang()
   const [draft, setDraft] = useState<SourceDraft>({ manufacturer: '', supplier: '' })
 
   function add() {
@@ -38,7 +40,7 @@ export function SourceEditor({ sources, onChange, trackLots = false }: Props) {
               <CardContent className="flex items-center justify-between gap-3 py-3">
                 <div className="text-sm">
                   <p className="font-medium">{s.manufacturer}</p>
-                  {s.supplier && <p className="text-xs text-muted-foreground">via {s.supplier}</p>}
+                  {s.supplier && <p className="text-xs text-muted-foreground">{t('src.via')} {s.supplier}</p>}
                 </div>
                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => remove(idx)} aria-label="Remove source">
                   <Trash2 className="h-4 w-4" />
@@ -51,22 +53,22 @@ export function SourceEditor({ sources, onChange, trackLots = false }: Props) {
 
       <Card>
         <CardContent className="space-y-3 py-4">
-          <p className="text-xs font-medium text-muted-foreground">Add a manufacturer / supplier</p>
+          <p className="text-xs font-medium text-muted-foreground">{t('src.add.title')}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="src-mfr" className="text-xs">Manufacturer</Label>
+              <Label htmlFor="src-mfr" className="text-xs">{t('label.manufacturer')}</Label>
               <Input
                 id="src-mfr"
-                placeholder="e.g. Eppendorf"
+                placeholder={t('src.manufacturer.placeholder')}
                 value={draft.manufacturer}
                 onChange={(e) => setDraft({ ...draft, manufacturer: e.target.value })}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="src-sup" className="text-xs">Supplier (optional)</Label>
+              <Label htmlFor="src-sup" className="text-xs">{t('src.supplier.optional')}</Label>
               <Input
                 id="src-sup"
-                placeholder="e.g. local distributor"
+                placeholder={t('src.supplier.placeholder')}
                 value={draft.supplier}
                 onChange={(e) => setDraft({ ...draft, supplier: e.target.value })}
               />
@@ -74,15 +76,13 @@ export function SourceEditor({ sources, onChange, trackLots = false }: Props) {
           </div>
           <Button type="button" variant="outline" size="sm" onClick={add} disabled={!draft.manufacturer}>
             <Plus className="h-4 w-4 mr-1" />
-            Add Source
+            {t('src.add.button')}
           </Button>
         </CardContent>
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        {trackLots
-          ? 'Pour les articles avec suivi par lot, le fabricant est requis à chaque livraison et fait partie de l\'identité du lot (fabricant + date d\'expiration).'
-          : 'Le stock est mutualisé entre tous les fabricants. Les sources sont enregistrées par livraison.'}
+        {trackLots ? t('src.help.tracked') : t('src.help.pooled')}
       </p>
     </div>
   )
