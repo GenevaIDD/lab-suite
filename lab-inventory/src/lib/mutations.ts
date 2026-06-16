@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { enqueue } from './offline-queue'
-import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry } from '@/types/database'
+import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry, UserRole } from '@/types/database'
 
 type Insert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>
 
@@ -212,6 +212,17 @@ export function useUpdateItemType() {
       qc.invalidateQueries({ queryKey: ['item_types'] })
       qc.invalidateQueries({ queryKey: ['item_types', vars.id] })
     },
+  })
+}
+
+export function useUpdateProfileRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: UserRole }) => {
+      const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
   })
 }
 

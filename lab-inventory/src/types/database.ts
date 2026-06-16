@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'lab_manager' | 'supervisor' | 'tech' | 'lab_team'
+export type UserRole = 'admin' | 'lab_manager' | 'tech' | 'lab_team'
 export type MaintenanceStatus = 'scheduled' | 'overdue' | 'completed'
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'CHF' | 'BIF' | 'CDF'
 

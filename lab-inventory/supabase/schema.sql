@@ -10,7 +10,7 @@ create extension if not exists "uuid-ossp";
 -- Enums
 -- ============================================================
 
-create type user_role as enum ('admin', 'lab_manager', 'supervisor', 'tech', 'lab_team');
+create type user_role as enum ('admin', 'lab_manager', 'tech', 'lab_team');
 create type currency_code as enum ('USD', 'EUR', 'GBP', 'CHF', 'BIF', 'CDF');
 
 -- ============================================================
@@ -323,7 +323,13 @@ create policy "authenticated read"  on stock_counts        for select using (aut
 create policy "authenticated read"  on deliveries           for select using (auth.role() = 'authenticated');
 
 -- admin + lab_manager: full data CRUD. tech: inserts only for logs/counts/deliveries.
--- admin additionally controls user management (enforced in UI, not RLS).
+-- admin additionally controls user management.
+
+-- Admins can change any user's role (in-app role editing on the Users page).
+create policy "admin update profiles" on profiles
+  for update using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+  );
 
 create policy "admin+lab_manager write equipment" on equipment
   for all using (

@@ -84,10 +84,17 @@ export function canManageStock(profile: Profile | null): boolean {
   return profile?.role === 'admin' || profile?.role === 'lab_manager' || profile?.role === 'tech'
 }
 
+// Only admins can view/manage users and change roles.
+export function canManageUsers(profile: Profile | null): boolean {
+  return profile?.role === 'admin'
+}
+
+// Assignable roles, in display order. Source of truth for the role picker.
+export const ROLES = ['admin', 'lab_manager', 'tech', 'lab_team'] as const
+
 export const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrateur',
   lab_manager: 'Responsable de labo',
-  supervisor: 'Superviseur',
   tech: 'Technicien',
   lab_team: 'Équipe de labo',
 }
