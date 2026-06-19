@@ -4,6 +4,7 @@ import { AuthContext, useAuth, useAuthState } from '@/lib/auth'
 import { LangProvider } from '@/lib/i18n'
 import { AppShell } from '@/components/layout/AppShell'
 import { Login } from '@/pages/Login'
+import { SetPassword } from '@/pages/SetPassword'
 import { Dashboard } from '@/pages/Dashboard'
 import { Equipment } from '@/pages/Equipment'
 import { EquipmentNew } from '@/pages/EquipmentNew'
@@ -70,6 +71,7 @@ export default function App() {
         <AuthGate>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/set-password" element={<SetPassword />} />
             <Route path="/inventory/session/:id/print" element={<SessionPrint />} />
             <Route
               element={

@@ -22,6 +22,7 @@ create table profiles (
   full_name   text not null,
   email       text not null,
   role        user_role not null default 'tech',
+  is_active   boolean not null default true,
   created_at  timestamptz not null default now()
 );
 

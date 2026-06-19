@@ -29,3 +29,18 @@ Supabase (Postgres + Auth + Storage), Vercel hosting, PWA offline support.
 - `npx vercel --prod` from `lab-inventory/` — GitHub auto-deploy is not connected
 - Bump `version` in `package.json` with each meaningful release
 - Run `npx tsc --noEmit && npx vitest run` before every commit
+
+## User management (invite / deactivate)
+- Privileged auth ops run in the Vercel serverless function `api/admin-users.ts`
+  (holds the service-role key; verifies the caller is an admin). The browser
+  cannot do these — the anon key has no auth-admin rights.
+- Required Vercel env vars: `SUPABASE_SERVICE_ROLE_KEY` (server-only secret) and
+  `SUPABASE_URL` (falls back to `VITE_SUPABASE_URL`). Never expose the service
+  role key to the client / `VITE_` prefix.
+- `vercel.json` rewrite excludes `/api` (`/((?!api/).*)`) so function routes aren't
+  swallowed by the SPA fallback.
+- Invite emails redirect to `<app-url>/set-password` — add that to Supabase
+  Auth → URL Configuration → Redirect URLs, or invited users can't set a password.
+- Role + name edits use the normal client + RLS (`admin update profiles` policy);
+  only invite + deactivate need the function. `profiles.is_active` mirrors the
+  Supabase ban state for the UI.

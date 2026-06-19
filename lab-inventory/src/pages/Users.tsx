@@ -1,16 +1,23 @@
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Users as UsersIcon, Check, Minus, Loader2, Info } from 'lucide-react'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog'
+import { Users as UsersIcon, Check, Minus, Loader2, Info, UserPlus, Power, Pencil, X } from 'lucide-react'
 import { useAuth, canManageUsers, ROLES } from '@/lib/auth'
 import { useProfiles } from '@/lib/queries'
-import { useUpdateProfileRole } from '@/lib/mutations'
+import { useUpdateProfileRole, useUpdateProfileName, useInviteUser, useSetUserActive } from '@/lib/mutations'
 import { useLang } from '@/lib/i18n'
 import type { TranslationKey } from '@/lib/translations'
 import type { Profile, UserRole } from '@/types/database'
@@ -52,11 +59,12 @@ export function Users() {
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base flex items-center gap-2">
             <UsersIcon className="h-4 w-4 text-muted-foreground" />
             {t('users.list.title')}
           </CardTitle>
+          {isAdmin && <InviteDialog />}
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -73,7 +81,9 @@ export function Users() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('users.col.user')}</TableHead>
-                  <TableHead className="w-56">{t('users.col.role')}</TableHead>
+                  <TableHead className="w-52">{t('users.col.role')}</TableHead>
+                  <TableHead className="w-28">{t('users.col.status')}</TableHead>
+                  {isAdmin && <TableHead className="w-32 text-right">{t('users.col.actions')}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -91,9 +101,77 @@ export function Users() {
   )
 }
 
+function InviteDialog() {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [role, setRole] = useState<UserRole>('tech')
+  const invite = useInviteUser()
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.trim()) return
+    try {
+      await invite.mutateAsync({ email: email.trim(), full_name: name.trim(), role })
+      toast.success(t('users.invite.success'))
+      setOpen(false)
+      setEmail(''); setName(''); setRole('tech')
+    } catch (err) {
+      toast.error(`${t('users.invite.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm"><UserPlus className="h-4 w-4 mr-1" />{t('users.invite.btn')}</Button>} />
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>{t('users.invite.title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-3">
+            <p className="text-sm text-muted-foreground">{t('users.invite.desc')}</p>
+            <div className="space-y-1">
+              <Label htmlFor="inv-email">{t('users.invite.email')}</Label>
+              <Input id="inv-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="inv-name">{t('users.invite.name')}</Label>
+              <Input id="inv-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="inv-role">{t('users.invite.role')}</Label>
+              <Select value={role} onValueChange={(v) => setRole((v ?? 'tech') as UserRole)}>
+                <SelectTrigger id="inv-role" className="w-full">
+                  <SelectValue>{(v) => roleLabel(t, String(v))}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((r) => <SelectItem key={r} value={r}>{roleLabel(t, r)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('users.cancel')}</Button>
+            <Button type="submit" disabled={!email.trim() || invite.isPending}>
+              {invite.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {t('users.invite.submit')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function UserRow({ user, isAdmin, isSelf }: { user: Profile; isAdmin: boolean; isSelf: boolean }) {
   const { t } = useLang()
   const updateRole = useUpdateProfileRole()
+  const updateName = useUpdateProfileName()
+  const setActive = useSetUserActive()
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState(user.full_name)
   const initials = (user.full_name || user.email).split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
 
   async function onRoleChange(role: string | null) {
@@ -106,18 +184,64 @@ function UserRow({ user, isAdmin, isSelf }: { user: Profile; isAdmin: boolean; i
     }
   }
 
+  async function saveName() {
+    const next = nameDraft.trim()
+    if (!next || next === user.full_name) { setEditingName(false); return }
+    try {
+      await updateName.mutateAsync({ id: user.id, full_name: next })
+      toast.success(t('users.name.updated'))
+      setEditingName(false)
+    } catch (err) {
+      toast.error(`${t('users.name.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  async function toggleActive() {
+    const next = !user.is_active
+    if (!next && !window.confirm(t('users.deactivate.confirm'))) return
+    try {
+      await setActive.mutateAsync({ id: user.id, is_active: next })
+      toast.success(next ? t('users.reactivated.toast') : t('users.deactivated.toast'))
+    } catch (err) {
+      toast.error(`${t('users.active.error')} : ${(err as Error).message}`)
+    }
+  }
+
   return (
-    <TableRow>
+    <TableRow className={user.is_active ? undefined : 'opacity-60'}>
       <TableCell>
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate flex items-center gap-1.5">
-              {user.full_name || '—'}
-              {isSelf && <Badge variant="outline" className="text-[10px] px-1 py-0">{t('users.you')}</Badge>}
-            </p>
+            {editingName ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  className="h-7 text-sm w-44"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+                />
+                <button type="button" onClick={saveName} disabled={updateName.isPending} className="p-1 rounded hover:bg-muted text-emerald-600" title={t('users.save')}>
+                  {updateName.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                </button>
+                <button type="button" onClick={() => { setEditingName(false); setNameDraft(user.full_name) }} className="p-1 rounded hover:bg-muted text-muted-foreground" title={t('users.cancel')}>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm font-medium truncate flex items-center gap-1.5 group">
+                {user.full_name || '—'}
+                {isSelf && <Badge variant="outline" className="text-[10px] px-1 py-0">{t('users.you')}</Badge>}
+                {isAdmin && (
+                  <button type="button" onClick={() => { setNameDraft(user.full_name); setEditingName(true) }} className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-muted text-muted-foreground transition-opacity" title={t('users.edit.name')}>
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           </div>
         </div>
@@ -146,6 +270,29 @@ function UserRow({ user, isAdmin, isSelf }: { user: Profile; isAdmin: boolean; i
           </Badge>
         )}
       </TableCell>
+      <TableCell>
+        <Badge variant={user.is_active ? 'outline' : 'secondary'} className="text-xs">
+          {user.is_active ? t('users.status.active') : t('users.status.inactive')}
+        </Badge>
+      </TableCell>
+      {isAdmin && (
+        <TableCell className="text-right">
+          {!isSelf && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleActive}
+              disabled={setActive.isPending}
+              className={user.is_active ? 'text-destructive hover:text-destructive' : ''}
+            >
+              {setActive.isPending
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Power className="h-3.5 w-3.5 mr-1" />}
+              {user.is_active ? t('users.deactivate') : t('users.reactivate')}
+            </Button>
+          )}
+        </TableCell>
+      )}
     </TableRow>
   )
 }

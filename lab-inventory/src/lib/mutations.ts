@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { enqueue } from './offline-queue'
+import { inviteUser, setUserActive } from './admin-api'
 import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry, UserRole } from '@/types/database'
 
 type Insert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>
@@ -222,6 +223,35 @@ export function useUpdateProfileRole() {
       const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
       if (error) throw error
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
+
+export function useUpdateProfileName() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, full_name }: { id: string; full_name: string }) => {
+      const { error } = await supabase.from('profiles').update({ full_name }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
+
+// Invite + activation go through the server-side admin function (service role).
+export function useInviteUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { email: string; full_name: string; role: UserRole }) =>
+      inviteUser({ ...p, redirectTo: `${window.location.origin}/set-password` }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
+
+export function useSetUserActive() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { id: string; is_active: boolean }) => setUserActive(p),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
   })
 }
