@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "deploy:prod": "vercel --prod",
+    "deploy:staging": "bash scripts/deploy-staging.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

@@ -26,9 +26,16 @@ Supabase (Postgres + Auth + Storage), Vercel hosting, PWA offline support.
 - `current_stock` is a SQL view — never write to it directly
 
 ## Deployment
-- `npx vercel --prod` from `lab-inventory/` — GitHub auto-deploy is not connected
+- `npx vercel --prod` (or `npm run deploy:prod`) from `lab-inventory/` — GitHub auto-deploy is not connected
 - Bump `version` in `package.json` with each meaningful release
 - Run `npx tsc --noEmit && npx vitest run` before every commit
+
+## Staging
+- Separate staging Supabase project + separate staging Vercel project. Full
+  setup + daily workflow in [docs/STAGING.md](docs/STAGING.md).
+- `npm run deploy:staging` targets the staging Vercel project (via
+  `.vercel-staging.env`, gitignored). `VITE_APP_ENV=staging` shows the in-app
+  staging badge (`src/lib/env.ts` / `EnvBanner`).
 
 ## User management (invite / deactivate)
 - Privileged auth ops run in the Vercel serverless function `api/admin-users.ts`

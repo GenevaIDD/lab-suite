@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthContext, useAuth, useAuthState } from '@/lib/auth'
 import { LangProvider } from '@/lib/i18n'
 import { AppShell } from '@/components/layout/AppShell'
+import { EnvBanner } from '@/components/layout/EnvBanner'
 import { Login } from '@/pages/Login'
 import { SetPassword } from '@/pages/SetPassword'
 import { Dashboard } from '@/pages/Dashboard'
@@ -68,6 +69,7 @@ export default function App() {
     <LangProvider>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <EnvBanner />
         <AuthGate>
           <Routes>
             <Route path="/login" element={<Login />} />

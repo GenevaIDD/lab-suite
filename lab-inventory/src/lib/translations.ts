@@ -1,5 +1,8 @@
 export const translations = {
   fr: {
+    // ── Environment ─────────────────────────────────────────
+    'env.staging':     'STAGING — données de test',
+
     // ── Navigation ──────────────────────────────────────────
     'nav.dashboard':   'Tableau de bord',
     'nav.equipment':   'Équipements',
@@ -323,6 +326,9 @@ export const translations = {
   },
 
   en: {
+    // ── Environment ─────────────────────────────────────────
+    'env.staging':     'STAGING — test data',
+
     // ── Navigation ──────────────────────────────────────────
     'nav.dashboard':   'Dashboard',
     'nav.equipment':   'Equipment',
