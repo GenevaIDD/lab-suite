@@ -48,13 +48,21 @@ export default async function handler(req: Req, res: Res) {
   if (callerErr || !caller.user) return res.status(401).json({ error: 'Invalid session' })
 
   // 2. Caller must be an admin.
-  const { data: callerProfile } = await admin
+  const { data: callerProfile, error: profileErr } = await admin
     .from('profiles')
     .select('role')
     .eq('id', caller.user.id)
     .single()
-  if (callerProfile?.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' })
+  if (profileErr || !callerProfile) {
+    // With a correct service_role key this read bypasses RLS and always
+    // returns the row. Failing here almost always means the configured key
+    // is the anon key (RLS then hides the row), not the service_role key.
+    return res.status(403).json({
+      error: `Could not read your profile — confirm SUPABASE_SERVICE_ROLE_KEY is the service_role (secret) key, not the anon key, and that you redeployed. (${profileErr?.message ?? 'no row found'})`,
+    })
+  }
+  if (callerProfile.role !== 'admin') {
+    return res.status(403).json({ error: `Admin access required — your account role is "${callerProfile.role}"` })
   }
 
   const body = (req.body ?? {}) as Record<string, unknown>
