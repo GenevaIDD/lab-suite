@@ -507,6 +507,11 @@ grant select, insert, update, delete on all tables in schema public to authentic
 grant usage, select on all sequences in schema public to authenticated;
 grant select on all tables in schema public to anon;
 
+-- service_role (used by the server-side api/admin-users function) needs full
+-- table access — it bypasses RLS policies but still requires the GRANT.
+grant all privileges on all tables in schema public to service_role;
+grant all privileges on all sequences in schema public to service_role;
+
 -- ============================================================
 -- Storage bucket for equipment photos (continued)
 -- ============================================================
