@@ -1,20 +1,26 @@
-import { useEffect, useState, createContext, useContext } from 'react'
+import { useEffect, useState, useCallback, createContext, useContext } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import type { Profile } from '@/types/database'
+import type { Profile, UserRole } from '@/types/database'
 
 interface AuthState {
   user: User | null
-  profile: Profile | null
+  profile: Profile | null        // effective profile — role may be overridden by "view as"
+  realProfile: Profile | null    // the actual signed-in profile (never overridden)
   session: Session | null
   loading: boolean
+  viewAsRole: UserRole | null     // non-null while an admin previews another role
+  setViewAsRole: (role: UserRole | null) => void
 }
 
 export const AuthContext = createContext<AuthState>({
   user: null,
   profile: null,
+  realProfile: null,
   session: null,
   loading: true,
+  viewAsRole: null,
+  setViewAsRole: () => {},
 })
 
 export function useAuth() {
@@ -26,6 +32,7 @@ export function useAuthState(): AuthState {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [viewAsRole, setViewAsRole] = useState<UserRole | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -39,7 +46,7 @@ export function useAuthState(): AuthState {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
-      else { setProfile(null); setLoading(false) }
+      else { setProfile(null); setViewAsRole(null); setLoading(false) }
     })
 
     return () => subscription.unsubscribe()
@@ -55,7 +62,25 @@ export function useAuthState(): AuthState {
     setLoading(false)
   }
 
-  return { user, profile, session, loading }
+  // Only a real admin may impersonate. The override changes role only — id,
+  // name, email stay real, and the server still enforces the real JWT (this is
+  // a UI preview, not a privilege change).
+  const isRealAdmin = profile?.role === 'admin'
+  const effectiveViewAs = isRealAdmin ? viewAsRole : null
+  const effectiveProfile: Profile | null =
+    profile && effectiveViewAs ? { ...profile, role: effectiveViewAs } : profile
+
+  const setViewAs = useCallback((role: UserRole | null) => setViewAsRole(role), [])
+
+  return {
+    user,
+    profile: effectiveProfile,
+    realProfile: profile,
+    session,
+    loading,
+    viewAsRole: effectiveViewAs,
+    setViewAsRole: setViewAs,
+  }
 }
 
 export async function signIn(email: string, password: string) {

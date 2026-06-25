@@ -3,6 +3,11 @@ export const translations = {
     // ── Environment ─────────────────────────────────────────
     'env.staging':     'STAGING — données de test',
 
+    // ── View as role (admin UI preview) ─────────────────────
+    'viewas.title':    'Voir en tant que',
+    'viewas.banner':   'Aperçu en tant que :',
+    'viewas.exit':     'Quitter',
+
     // ── Navigation ──────────────────────────────────────────
     'nav.dashboard':   'Tableau de bord',
     'nav.equipment':   'Équipements',
@@ -328,6 +333,11 @@ export const translations = {
   en: {
     // ── Environment ─────────────────────────────────────────
     'env.staging':     'STAGING — test data',
+
+    // ── View as role (admin UI preview) ─────────────────────
+    'viewas.title':    'View as',
+    'viewas.banner':   'Previewing as:',
+    'viewas.exit':     'Exit',
 
     // ── Navigation ──────────────────────────────────────────
     'nav.dashboard':   'Dashboard',

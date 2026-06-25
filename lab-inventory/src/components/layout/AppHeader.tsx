@@ -4,10 +4,12 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Wifi, WifiOff, CloudUpload, LogOut } from 'lucide-react'
+import { Wifi, WifiOff, CloudUpload, LogOut, Eye, Check } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { useAuth, signOut, ROLE_LABELS } from '@/lib/auth'
+import { useAuth, signOut, ROLE_LABELS, ROLES } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
+import type { TranslationKey } from '@/lib/translations'
+import type { UserRole } from '@/types/database'
 import { toast } from 'sonner'
 
 interface AppHeaderProps {
@@ -16,8 +18,9 @@ interface AppHeaderProps {
 
 export function AppHeader({ title }: AppHeaderProps) {
   const { isOnline, pendingWrites } = useOnlineStatus()
-  const { profile } = useAuth()
+  const { profile, realProfile, viewAsRole, setViewAsRole } = useAuth()
   const { lang, setLang, t } = useLang()
+  const isRealAdmin = realProfile?.role === 'admin'
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -112,6 +115,30 @@ export function AppHeader({ title }: AppHeaderProps) {
                   </Badge>
                 )}
               </div>
+
+              {/* View as role — admins only (UI preview, doesn't change real permissions) */}
+              {isRealAdmin && (
+                <div className="border-b py-1">
+                  <p className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <Eye className="h-3 w-3" />
+                    {t('viewas.title')}
+                  </p>
+                  {ROLES.map((r) => {
+                    const effective = (viewAsRole ?? realProfile!.role) as UserRole
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => { setViewAsRole(r === realProfile!.role ? null : r); setOpen(false) }}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors"
+                      >
+                        <span>{t(`users.role.${r}` as TranslationKey)}</span>
+                        {effective === r && <Check className="h-3.5 w-3.5 text-primary" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               {/* Sign out */}
               <button
                 onClick={handleSignOut}

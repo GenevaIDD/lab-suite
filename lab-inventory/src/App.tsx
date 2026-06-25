@@ -4,6 +4,7 @@ import { AuthContext, useAuth, useAuthState } from '@/lib/auth'
 import { LangProvider } from '@/lib/i18n'
 import { AppShell } from '@/components/layout/AppShell'
 import { EnvBanner } from '@/components/layout/EnvBanner'
+import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
 import { Login } from '@/pages/Login'
 import { SetPassword } from '@/pages/SetPassword'
 import { Dashboard } from '@/pages/Dashboard'
@@ -71,6 +72,7 @@ export default function App() {
       <BrowserRouter>
         <EnvBanner />
         <AuthGate>
+          <ImpersonationBanner />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/set-password" element={<SetPassword />} />
