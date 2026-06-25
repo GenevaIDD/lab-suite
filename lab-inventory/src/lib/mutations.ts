@@ -220,7 +220,7 @@ export function useUpdateProfileRole() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, role }: { id: string; role: UserRole }) => {
-      const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
+      const { error } = await supabase.from('profiles').update({ role } as never).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
@@ -231,7 +231,7 @@ export function useUpdateProfileName() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, full_name }: { id: string; full_name: string }) => {
-      const { error } = await supabase.from('profiles').update({ full_name }).eq('id', id)
+      const { error } = await supabase.from('profiles').update({ full_name } as never).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
