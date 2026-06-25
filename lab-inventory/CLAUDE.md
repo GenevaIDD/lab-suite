@@ -30,6 +30,13 @@ Supabase (Postgres + Auth + Storage), Vercel hosting, PWA offline support.
 - Bump `version` in `package.json` with each meaningful release
 - Run `npx tsc --noEmit && npx vitest run` before every commit
 
+## Keep-alive
+- `api/health.ts` + a daily Vercel Cron (`vercel.json` → `crons`) make a
+  lightweight DB read so the free-tier Supabase project doesn't auto-pause
+  after ~7 days idle. Crons run on the **production** deployment only — that's
+  intended (keep prod warm; staging restores on demand).
+- Manual probe: `GET /api/health` returns `{ ok, ts }`.
+
 ## Staging
 - Separate staging Supabase project + separate staging Vercel project. Full
   setup + daily workflow in [docs/STAGING.md](docs/STAGING.md).
