@@ -14,10 +14,10 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import { Users as UsersIcon, Check, Minus, Loader2, Info, UserPlus, Power, Pencil, X } from 'lucide-react'
+import { Users as UsersIcon, Check, Minus, Loader2, Info, UserPlus, Power, Pencil, X, KeyRound } from 'lucide-react'
 import { useAuth, canManageUsers, ROLES } from '@/lib/auth'
 import { useProfiles } from '@/lib/queries'
-import { useUpdateProfileRole, useUpdateProfileName, useInviteUser, useSetUserActive } from '@/lib/mutations'
+import { useUpdateProfileRole, useUpdateProfileName, useInviteUser, useSetUserActive, useSetUserPassword } from '@/lib/mutations'
 import { useLang } from '@/lib/i18n'
 import type { TranslationKey } from '@/lib/translations'
 import type { Profile, UserRole } from '@/types/database'
@@ -277,23 +277,89 @@ function UserRow({ user, isAdmin, isSelf }: { user: Profile; isAdmin: boolean; i
       </TableCell>
       {isAdmin && (
         <TableCell className="text-right">
-          {!isSelf && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleActive}
-              disabled={setActive.isPending}
-              className={user.is_active ? 'text-destructive hover:text-destructive' : ''}
-            >
-              {setActive.isPending
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <Power className="h-3.5 w-3.5 mr-1" />}
-              {user.is_active ? t('users.deactivate') : t('users.reactivate')}
-            </Button>
-          )}
+          <div className="flex items-center justify-end gap-1">
+            <SetPasswordDialog user={user} />
+            {!isSelf && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleActive}
+                disabled={setActive.isPending}
+                className={user.is_active ? 'text-destructive hover:text-destructive' : ''}
+              >
+                {setActive.isPending
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Power className="h-3.5 w-3.5 mr-1" />}
+                {user.is_active ? t('users.deactivate') : t('users.reactivate')}
+              </Button>
+            )}
+          </div>
         </TableCell>
       )}
     </TableRow>
+  )
+}
+
+function SetPasswordDialog({ user }: { user: Profile }) {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  const [pw, setPw] = useState('')
+  const setPassword = useSetUserPassword()
+
+  function generate() {
+    const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    const bytes = crypto.getRandomValues(new Uint8Array(12))
+    setPw(Array.from(bytes).map((b) => alphabet[b % alphabet.length]).join(''))
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (pw.length < 8) { toast.error(t('setpw.short')); return }
+    try {
+      await setPassword.mutateAsync({ id: user.id, password: pw })
+      toast.success(t('users.pw.success'))
+      setOpen(false)
+      setPw('')
+    } catch (err) {
+      toast.error(`${t('users.pw.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={
+        <Button variant="ghost" size="sm" title={t('users.pw.set')}>
+          <KeyRound className="h-3.5 w-3.5" />
+        </Button>
+      } />
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>{t('users.pw.title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-3">
+            <p className="text-sm text-muted-foreground">{user.full_name || user.email}</p>
+            <div className="space-y-1">
+              <Label htmlFor="set-pw">{t('users.pw.new')}</Label>
+              <div className="flex gap-2">
+                <Input id="set-pw" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" />
+                <Button type="button" variant="outline" size="sm" onClick={generate} className="shrink-0">
+                  {t('users.pw.generate')}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">{t('users.pw.hint')}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('users.cancel')}</Button>
+            <Button type="submit" disabled={pw.length < 8 || setPassword.isPending}>
+              {setPassword.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {t('users.pw.submit')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 

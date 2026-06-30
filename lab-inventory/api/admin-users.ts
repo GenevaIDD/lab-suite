@@ -110,6 +110,22 @@ export default async function handler(req: Req, res: Res) {
       return res.status(200).json({ ok: true })
     }
 
+    if (action === 'set_password') {
+      const id = String(body.id ?? '')
+      const password = String(body.password ?? '')
+      if (!id) return res.status(400).json({ error: 'User id is required' })
+      if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
+
+      // email_confirm: true also activates an invited-but-unconfirmed user, so
+      // someone whose invite link expired can sign in immediately with this password.
+      const { error } = await admin.auth.admin.updateUserById(id, {
+        password,
+        email_confirm: true,
+      })
+      if (error) return res.status(400).json({ error: error.message })
+      return res.status(200).json({ ok: true })
+    }
+
     return res.status(400).json({ error: 'Unknown action' })
   } catch (e) {
     return res.status(500).json({ error: (e as Error).message })

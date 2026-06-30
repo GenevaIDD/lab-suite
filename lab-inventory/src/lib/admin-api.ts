@@ -25,3 +25,7 @@ export function inviteUser(p: { email: string; full_name: string; role: string; 
 export function setUserActive(p: { id: string; is_active: boolean }) {
   return callAdmin('set_active', p)
 }
+
+export function setUserPassword(p: { id: string; password: string }) {
+  return callAdmin('set_password', p)
+}

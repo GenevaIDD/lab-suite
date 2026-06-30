@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { enqueue } from './offline-queue'
-import { inviteUser, setUserActive } from './admin-api'
+import { inviteUser, setUserActive, setUserPassword } from './admin-api'
 import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry, UserRole } from '@/types/database'
 
 type Insert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>
@@ -253,6 +253,12 @@ export function useSetUserActive() {
   return useMutation({
     mutationFn: (p: { id: string; is_active: boolean }) => setUserActive(p),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
+
+export function useSetUserPassword() {
+  return useMutation({
+    mutationFn: (p: { id: string; password: string }) => setUserPassword(p),
   })
 }
 
