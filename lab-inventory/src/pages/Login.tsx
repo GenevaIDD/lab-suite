@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { signIn } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 export function Login() {
@@ -27,6 +28,16 @@ export function Login() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleForgot() {
+    if (!email) { toast.error(t('login.forgot.needemail')); return }
+    try {
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/set-password`,
+      })
+    } catch { /* ignore — don't reveal whether the account exists */ }
+    toast.success(t('login.forgot.sent'))
   }
 
   return (
@@ -70,6 +81,13 @@ export function Login() {
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {t('login.btn')}
               </Button>
+              <button
+                type="button"
+                onClick={handleForgot}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {t('login.forgot')}
+              </button>
             </form>
           </CardContent>
         </Card>

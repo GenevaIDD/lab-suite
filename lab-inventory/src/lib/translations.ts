@@ -257,6 +257,9 @@ export const translations = {
     'login.btn':          'Se connecter',
     'login.no.account':   'Pas de compte ? Contactez votre administrateur.',
     'login.failed':       'Connexion échouée',
+    'login.forgot':           'Mot de passe oublié ?',
+    'login.forgot.needemail': 'Entrez d\'abord votre email ci-dessus.',
+    'login.forgot.sent':      'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.',
 
     // ── Users ────────────────────────────────────────────────
     'users.managed':      'Les utilisateurs sont gérés via Supabase Auth. Le rôle est assigné dans la table profiles.',
@@ -596,6 +599,9 @@ export const translations = {
     'login.btn':          'Sign in',
     'login.no.account':   'No account yet? Ask your administrator.',
     'login.failed':       'Login failed',
+    'login.forgot':           'Forgot password?',
+    'login.forgot.needemail': 'Enter your email above first.',
+    'login.forgot.sent':      'If an account exists for that email, a reset link has been sent.',
 
     // ── Users ────────────────────────────────────────────────
     'users.managed':      'Users are managed through Supabase Auth. Role assignment happens in the profiles table.',
