@@ -23,14 +23,14 @@ export async function downloadXlsx(
     }),
   )
 
-  // Loose cast at the boundary — the library's cell/option typing varies
-  // across versions; data + fileName are validated here instead.
+  // write-excel-file v4: writeXlsxFile(data, { columns }) returns { toBlob, toFile };
+  // the browser build's .toFile(name) triggers the download. Loose cast at the
+  // boundary since the library's cell/option typing varies across versions.
   const write = writeXlsxFile as unknown as (
-    data: unknown, sheetOptions: unknown, options: unknown,
-  ) => Promise<unknown>
+    data: unknown, sheetOptions: unknown,
+  ) => { toFile: (fileName: string) => Promise<void> }
   await write(
     [headerRow, ...bodyRows],
     { columns: columns.map((c) => ({ width: c.width ?? 22 })) },
-    { fileName },
-  )
+  ).toFile(fileName)
 }
