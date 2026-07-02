@@ -13,8 +13,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/inventory': 'Inventaire',
   '/inventory/new': 'Nouvel article',
   '/inventory/delivery/new': 'Nouvelle livraison',
-  '/inventory/stock-count': 'Comptage de stock',
-  '/inventory/session/new': 'Démarrer l\'inventaire',
+  '/inventory/stock-count': 'Comptage rapide',
+  '/inventory/session/new': 'Inventaire complet',
   '/users': 'Utilisateurs',
 }
 
