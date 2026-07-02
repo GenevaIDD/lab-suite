@@ -1,16 +1,24 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp, FlaskConical } from 'lucide-react'
-import { buttonVariants } from '@/components/ui/button'
+import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp, FlaskConical, Plus } from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { StockChart, BurnChart } from '@/components/ui/MiniChart'
 import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots } from '@/lib/queries'
+import { useUpsertLot } from '@/lib/mutations'
 import { buildTimeline, buildBurnRate, buildAnomalies } from '@/lib/stockCalc'
 import { getExpiringLots } from '@/lib/lotCalc'
-import { cn } from '@/lib/utils'
+import { useAuth, isAdmin } from '@/lib/auth'
+import { useLang } from '@/lib/i18n'
+import { ENABLE_MANUAL_LOT_ENTRY } from '@/lib/flags'
+import { cn, qtyStep } from '@/lib/utils'
+import { toast } from 'sonner'
 import type { InventoryLot } from '@/types/database'
 
 function fmt(d: string) { return format(parseISO(d), 'd MMM yyyy') }
@@ -20,6 +28,8 @@ interface StockRow { item_type_id: string; quantity: number; last_counted_at: st
 
 export function ItemDetail() {
   const { id } = useParams<{ id: string }>()
+  const { profile } = useAuth()
+  const canAddLot = ENABLE_MANUAL_LOT_ENTRY && isAdmin(profile)
 
   const { data: item, isLoading } = useItemType(id)
   const { data: counts = [] }     = useItemCounts(id)
@@ -103,15 +113,24 @@ export function ItemDetail() {
               <FlaskConical className="h-4 w-4 text-muted-foreground" />
               Lots actifs
               {expiringLots.length > 0 && (
-                <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 ml-auto">
+                <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
                   {expiringLots.length} expire{expiringLots.length > 1 ? 'nt' : ''} bientôt
                 </Badge>
+              )}
+              {canAddLot && id && (
+                <div className="ml-auto">
+                  <AddLotDialog itemTypeId={id} unit={item.unit} />
+                </div>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {activeLots.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-4 py-4">Aucun lot actif — enregistrez une livraison pour créer des lots.</p>
+              <p className="text-sm text-muted-foreground px-4 py-4">
+                {canAddLot
+                  ? 'Aucun lot actif — ajoutez un lot ci-dessus ou enregistrez une livraison.'
+                  : 'Aucun lot actif — enregistrez une livraison pour créer des lots.'}
+              </p>
             ) : (
               <Table>
                 <TableHeader>
@@ -293,6 +312,76 @@ function Empty({ text }: { text: string }) {
       <Package className="h-8 w-8 opacity-20" />
       <p className="text-sm">{text}</p>
     </div>
+  )
+}
+
+function AddLotDialog({ itemTypeId, unit }: { itemTypeId: string; unit: string }) {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  const [manufacturer, setManufacturer] = useState('')
+  const [expiry, setExpiry] = useState('')
+  const [lotNumber, setLotNumber] = useState('')
+  const [qty, setQty] = useState('')
+  const upsert = useUpsertLot()
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!manufacturer.trim() || !expiry || qty === '') { toast.error(t('lot.add.required')); return }
+    try {
+      await upsert.mutateAsync({
+        item_type_id: itemTypeId,
+        delivery_id: null,
+        manufacturer: manufacturer.trim(),
+        expiry_date: expiry,
+        lot_number: lotNumber.trim() || null,
+        quantity_initial: Number(qty),
+        quantity_remaining: Number(qty),
+      })
+      toast.success(t('lot.add.success'))
+      setOpen(false)
+      setManufacturer(''); setExpiry(''); setLotNumber(''); setQty('')
+    } catch (err) {
+      toast.error(`${t('lot.add.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t('lot.add.btn')}</Button>} />
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader><DialogTitle>{t('lot.add.title')}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-3">
+            <p className="text-sm text-muted-foreground">{t('lot.add.desc')}</p>
+            <div className="space-y-1">
+              <Label htmlFor="lot-mfr">{t('lot.add.manufacturer')}</Label>
+              <Input id="lot-mfr" value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} required />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="lot-exp">{t('lot.add.expiry')}</Label>
+                <Input id="lot-exp" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="lot-num">{t('lot.add.number')}</Label>
+                <Input id="lot-num" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lot-qty">{t('lot.add.qty')}{unit ? ` (${unit})` : ''}</Label>
+              <Input id="lot-qty" type="number" min={0} step={qtyStep(unit)} value={qty} onChange={(e) => setQty(e.target.value)} required />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('users.cancel')}</Button>
+            <Button type="submit" disabled={upsert.isPending}>
+              {upsert.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {t('lot.add.submit')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
