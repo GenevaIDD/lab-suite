@@ -14,7 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Search, Package, Loader2, ClipboardList, Play, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, Package, Loader2, ClipboardList, Play, ArrowUpDown, Download } from 'lucide-react'
+import { downloadXlsx } from '@/lib/export'
+import { toast } from 'sonner'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -77,6 +79,35 @@ export function Inventory() {
     return rows
   }, [itemTypes, stockRows, search, sortBy])
 
+  async function exportInventory() {
+    try {
+      const byItem = new Map(stockRows.map((r) => [r.item_type_id, r]))
+      const columns = [
+        { header: t('export.inv.name'), width: 34 },
+        { header: t('export.inv.category'), width: 22 },
+        { header: t('export.inv.unit'), width: 14 },
+        { header: t('export.inv.stock'), width: 14 },
+        { header: t('export.inv.min'), width: 16 },
+        { header: t('export.inv.status'), width: 14 },
+        { header: t('export.inv.lastcount'), width: 16 },
+      ]
+      const rows = [...itemTypes]
+        .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+        .map((i) => {
+          const s = byItem.get(i.id)
+          const qty = s ? Number(s.quantity) : 0
+          return [
+            i.name, i.category, i.unit, qty, i.min_threshold,
+            qty < i.min_threshold ? t('export.status.low') : t('export.status.ok'),
+            s?.last_counted_at ? parseISO(s.last_counted_at) : null,
+          ]
+        })
+      await downloadXlsx(`inventaire-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, columns, rows)
+    } catch (err) {
+      toast.error(`${t('export.error')} : ${(err as Error).message}`)
+    }
+  }
+
   const deliveryRows = useMemo(() => {
     const q = search.toLowerCase()
     return deliveries.filter(
@@ -135,6 +166,12 @@ export function Inventory() {
           <Link to="/inventory/sessions" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
             Historique
           </Link>
+          {tab === 'items' && (
+            <button type="button" onClick={exportInventory} className={cn(buttonVariants({ variant: 'outline' }))}>
+              <Download className="h-4 w-4 mr-1" />
+              {t('export.btn')}
+            </button>
+          )}
           {!activeSession && (
             <Link to="/inventory/session/new" className={cn(buttonVariants({ variant: 'outline' }))}>
               <ClipboardList className="h-4 w-4 mr-1" />

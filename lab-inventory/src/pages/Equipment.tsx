@@ -13,15 +13,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Search, Wrench, AlertTriangle, Clock, Loader2, ArchiveX } from 'lucide-react'
+import { Plus, Search, Wrench, AlertTriangle, Clock, Loader2, ArchiveX, Download } from 'lucide-react'
 import { useEquipmentList, useMaintenanceSchedules } from '@/lib/queries'
 import { useLang } from '@/lib/i18n'
+import { useAuth, isAdmin } from '@/lib/auth'
+import { downloadXlsx } from '@/lib/export'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import type { MaintenanceSchedule } from '@/types/database'
 
 export function Equipment() {
   const [search, setSearch] = useState('')
   const { t } = useLang()
+  const { profile } = useAuth()
+  const admin = isAdmin(profile)
   const { data: equipment = [], isLoading, error } = useEquipmentList()
   const { data: schedules = [] } = useMaintenanceSchedules()
 
@@ -42,6 +47,42 @@ export function Equipment() {
     )
   }, [equipment, search])
 
+  async function exportEquipment() {
+    try {
+      const columns = [
+        { header: t('export.eq.name'), width: 30 },
+        { header: t('export.eq.category'), width: 22 },
+        { header: t('export.eq.serial'), width: 18 },
+        { header: t('export.eq.supplier'), width: 22 },
+        { header: t('export.eq.purchase'), width: 14 },
+        { header: t('export.eq.install'), width: 14 },
+        { header: t('export.eq.warranty'), width: 14 },
+        { header: t('export.eq.nextmaint'), width: 16 },
+        ...(admin ? [{ header: t('export.eq.cost'), width: 12 }, { header: t('export.eq.currency'), width: 10 }] : []),
+        { header: t('export.eq.notes'), width: 40 },
+      ]
+      const rows = [...equipment]
+        .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+        .map((e) => {
+          const next = (schedulesByEquipment.get(e.id) ?? [])
+            .map((s) => ({ s, days: differenceInDays(parseISO(s.next_due), new Date()) }))
+            .sort((a, b) => a.days - b.days)[0]
+          return [
+            e.name, e.category, e.serial_number, e.supplier,
+            e.purchase_date ? parseISO(e.purchase_date) : null,
+            e.installed_at ? parseISO(e.installed_at) : null,
+            e.warranty_expiry ? parseISO(e.warranty_expiry) : null,
+            next ? parseISO(next.s.next_due) : null,
+            ...(admin ? [e.cost ?? null, e.currency ?? null] : []),
+            e.notes ?? null,
+          ]
+        })
+      await downloadXlsx(`equipements-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, columns, rows)
+    } catch (err) {
+      toast.error(`${t('export.error')} : ${(err as Error).message}`)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -54,6 +95,10 @@ export function Equipment() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <button type="button" onClick={exportEquipment} className={cn(buttonVariants({ variant: 'outline' }))}>
+          <Download className="h-4 w-4 mr-1" />
+          {t('export.btn')}
+        </button>
         <Link to="/equipment/retired" className={cn(buttonVariants({ variant: 'outline' }))}>
           <ArchiveX className="h-4 w-4 mr-1" />
           Retirés
