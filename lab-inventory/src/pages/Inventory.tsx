@@ -20,7 +20,8 @@ import { toast } from 'sonner'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { useItemTypes, useDeliveries, useCurrentStock, useActiveSession } from '@/lib/queries'
+import { useItemTypes, useDeliveries, useCurrentStock, useActiveSession, useAllActiveLots } from '@/lib/queries'
+import type { XlsxSheet } from '@/lib/export'
 import { useLang } from '@/lib/i18n'
 import { useAuth, canManageStock } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -48,6 +49,7 @@ export function Inventory() {
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
   const { data: deliveries = [], isLoading: loadingDeliveries } = useDeliveries()
   const { data: activeSession } = useActiveSession()
+  const { data: activeLots = [] } = useAllActiveLots()
 
   const itemRows = useMemo(() => {
     const q = search.toLowerCase()
@@ -82,7 +84,7 @@ export function Inventory() {
   async function exportInventory() {
     try {
       const byItem = new Map(stockRows.map((r) => [r.item_type_id, r]))
-      const columns = [
+      const invColumns = [
         { header: t('export.inv.name'), width: 34 },
         { header: t('export.inv.category'), width: 22 },
         { header: t('export.inv.unit'), width: 14 },
@@ -91,7 +93,7 @@ export function Inventory() {
         { header: t('export.inv.status'), width: 14 },
         { header: t('export.inv.lastcount'), width: 16 },
       ]
-      const rows = [...itemTypes]
+      const invRows = [...itemTypes]
         .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
         .map((i) => {
           const s = byItem.get(i.id)
@@ -102,7 +104,40 @@ export function Inventory() {
             s?.last_counted_at ? parseISO(s.last_counted_at) : null,
           ]
         })
-      await downloadXlsx(`inventaire-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, columns, rows)
+
+      const sheets: XlsxSheet[] = [
+        { name: t('export.sheet.inventory'), columns: invColumns, rows: invRows },
+      ]
+
+      // Lot-tracked items: one row per active lot, with expiry + remaining qty.
+      if (activeLots.length > 0) {
+        const lotColumns = [
+          { header: t('export.lot.item'), width: 34 },
+          { header: t('export.inv.category'), width: 22 },
+          { header: t('export.lot.manufacturer'), width: 22 },
+          { header: t('export.lot.number'), width: 16 },
+          { header: t('export.lot.expiry'), width: 14 },
+          { header: t('export.lot.remaining'), width: 16 },
+          { header: t('export.inv.unit'), width: 12 },
+        ]
+        const lotRows = [...activeLots]
+          .sort((a, b) =>
+            (a.item_type?.name ?? '').localeCompare(b.item_type?.name ?? '') ||
+            a.expiry_date.localeCompare(b.expiry_date),
+          )
+          .map((l) => [
+            l.item_type?.name ?? '',
+            l.item_type?.category ?? '',
+            l.manufacturer,
+            l.lot_number,
+            l.expiry_date ? parseISO(l.expiry_date) : null,
+            Number(l.quantity_remaining),
+            l.item_type?.unit ?? '',
+          ])
+        sheets.push({ name: t('export.sheet.lots'), columns: lotColumns, rows: lotRows })
+      }
+
+      await downloadXlsx(`inventaire-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, sheets)
     } catch (err) {
       toast.error(`${t('export.error')} : ${(err as Error).message}`)
     }

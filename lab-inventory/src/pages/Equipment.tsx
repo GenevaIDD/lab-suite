@@ -77,7 +77,9 @@ export function Equipment() {
             e.notes ?? null,
           ]
         })
-      await downloadXlsx(`equipements-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, columns, rows)
+      await downloadXlsx(`equipements-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, [
+        { name: t('export.sheet.equipment'), columns, rows },
+      ])
     } catch (err) {
       toast.error(`${t('export.error')} : ${(err as Error).message}`)
     }
