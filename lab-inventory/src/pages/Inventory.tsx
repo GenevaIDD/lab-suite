@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { Plus, Search, Package, Loader2, ClipboardList, Play, ArrowUpDown, Download } from 'lucide-react'
 import { downloadXlsx } from '@/lib/export'
+import { storageLabel } from '@/lib/storage'
 import { toast } from 'sonner'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -90,6 +91,7 @@ export function Inventory() {
         { header: t('export.inv.name'), width: 34 },
         { header: t('export.inv.category'), width: 22 },
         { header: t('export.inv.unit'), width: 14 },
+        { header: t('item.storage.label'), width: 20 },
         { header: t('export.inv.stock'), width: 14 },
         { header: t('export.inv.min'), width: 16 },
         { header: t('export.inv.status'), width: 14 },
@@ -101,7 +103,8 @@ export function Inventory() {
           const s = byItem.get(i.id)
           const qty = s ? Number(s.quantity) : 0
           return [
-            i.name, i.category, i.unit, qty, i.min_threshold,
+            i.name, i.category, i.unit, storageLabel(t, i.storage_condition),
+            qty, i.min_threshold,
             qty < i.min_threshold ? t('export.status.low') : t('export.status.ok'),
             s?.last_counted_at ? parseISO(s.last_counted_at) : null,
           ]

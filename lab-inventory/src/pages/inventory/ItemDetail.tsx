@@ -17,6 +17,7 @@ import { buildTimeline, buildBurnRate, buildAnomalies } from '@/lib/stockCalc'
 import { getExpiringLots } from '@/lib/lotCalc'
 import { useAuth, isAdmin, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
+import { storageLabel } from '@/lib/storage'
 import { ENABLE_MANUAL_LOT_ENTRY } from '@/lib/flags'
 import { cn, qtyStep } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -29,6 +30,7 @@ interface StockRow { item_type_id: string; quantity: number; last_counted_at: st
 
 export function ItemDetail() {
   const { id } = useParams<{ id: string }>()
+  const { t } = useLang()
   const { profile } = useAuth()
   const canAddLot = ENABLE_MANUAL_LOT_ENTRY && isAdmin(profile)
   const canDiscard = canManageStock(profile)
@@ -80,6 +82,9 @@ export function ItemDetail() {
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-semibold">{item.name}</h2>
             <Badge variant="secondary">{item.category}</Badge>
+            {item.storage_condition && (
+              <Badge variant="outline">{storageLabel(t, item.storage_condition)}</Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground mt-1">Unité : {item.unit}</p>
         </div>

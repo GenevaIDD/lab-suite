@@ -116,6 +116,7 @@ create table item_types (
   unit                text not null,   -- e.g. "boxes", "mL", "units"
   min_threshold       numeric(10, 2) not null default 0,
   track_lots          boolean not null default false,  -- if true, track lots with expiry/manufacturer
+  storage_condition   text check (storage_condition in ('ambient', 'refrigerator', 'freezer')),
   low_stock_alerted_at timestamptz,
   notes               text,
   created_at          timestamptz not null default now(),

@@ -16,17 +16,20 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { SelectOrNew } from '@/components/ui/SelectOrNew'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useItemType, useDistinctCategories, useDistinctUnits, useItemSources } from '@/lib/queries'
 import { useUpdateItemType, useCreateItemSource, useDeleteItemSource, useDeleteItemType } from '@/lib/mutations'
 import { useAuth, isAdmin } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
+import { STORAGE_CONDITIONS, storageLabel } from '@/lib/storage'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { ItemSource } from '@/types/database'
+import type { ItemSource, StorageCondition } from '@/types/database'
 
 export function ItemEdit() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t } = useLang()
   const { profile } = useAuth()
   const { data: item, isLoading } = useItemType(id)
   const { data: categories = [] } = useDistinctCategories()
@@ -38,6 +41,7 @@ export function ItemEdit() {
   const [unit, setUnit] = useState('')
   const [minThreshold, setMinThreshold] = useState('0')
   const [trackLots, setTrackLots] = useState(false)
+  const [storage, setStorage] = useState<string>('')
   const [notes, setNotes] = useState('')
 
   // Populate once item loads
@@ -48,6 +52,7 @@ export function ItemEdit() {
       setUnit(item.unit)
       setMinThreshold(String(item.min_threshold))
       setTrackLots(item.track_lots ?? false)
+      setStorage(item.storage_condition ?? '')
       setNotes(item.notes ?? '')
     }
   }, [item])
@@ -66,6 +71,7 @@ export function ItemEdit() {
         unit,
         min_threshold: Number(minThreshold) || 0,
         track_lots: trackLots,
+        storage_condition: (storage || null) as StorageCondition | null,
         notes: notes || null,
       })
       toast.success('Article mis à jour')
@@ -129,6 +135,21 @@ export function ItemEdit() {
                 options={units}
                 placeholder="Sélectionner ou ajouter…"
               />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="storage">{t('item.storage.label')}</Label>
+              <Select value={storage} onValueChange={(v) => setStorage(v ?? '')}>
+                <SelectTrigger id="storage" className="w-full">
+                  <SelectValue placeholder={t('item.storage.placeholder')}>
+                    {(v) => storageLabel(t, String(v))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {STORAGE_CONDITIONS.map((s) => (
+                    <SelectItem key={s} value={s}>{storageLabel(t, s)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label htmlFor="min">Seuil minimum de stock</Label>

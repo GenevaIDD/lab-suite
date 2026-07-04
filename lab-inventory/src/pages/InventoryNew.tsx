@@ -7,17 +7,22 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SelectOrNew } from '@/components/ui/SelectOrNew'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SourceEditor, type SourceDraft } from '@/components/inventory/SourceEditor'
 import { useCreateItemType, useCreateItemSource } from '@/lib/mutations'
 import { useDistinctCategories, useDistinctUnits, useItemTypes } from '@/lib/queries'
+import { useLang } from '@/lib/i18n'
+import { STORAGE_CONDITIONS, storageLabel } from '@/lib/storage'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { findSimilar } from '@/lib/similarity'
+import type { StorageCondition } from '@/types/database'
 
 // ── Component ─────────────────────────────────────────────────
 
 export function InventoryNew() {
   const navigate = useNavigate()
+  const { t } = useLang()
   const createItem = useCreateItemType()
   const createSource = useCreateItemSource()
 
@@ -30,6 +35,7 @@ export function InventoryNew() {
   const [unit, setUnit]               = useState('')
   const [minThreshold, setMinThreshold] = useState('0')
   const [trackLots, setTrackLots]     = useState(false)
+  const [storage, setStorage]         = useState<string>('')
   const [notes, setNotes]             = useState('')
   const [sources, setSources]         = useState<SourceDraft[]>([])
   const [dismissed, setDismissed]     = useState(false)
@@ -58,6 +64,7 @@ export function InventoryNew() {
         unit,
         min_threshold: Number(minThreshold) || 0,
         track_lots: trackLots,
+        storage_condition: (storage || null) as StorageCondition | null,
         low_stock_alerted_at: null,
         notes: notes || null,
       })
@@ -167,6 +174,21 @@ export function InventoryNew() {
                 options={units}
                 placeholder="Sélectionner ou ajouter…"
               />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="storage">{t('item.storage.label')}</Label>
+              <Select value={storage} onValueChange={(v) => setStorage(v ?? '')}>
+                <SelectTrigger id="storage" className="w-full">
+                  <SelectValue placeholder={t('item.storage.placeholder')}>
+                    {(v) => storageLabel(t, String(v))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {STORAGE_CONDITIONS.map((s) => (
+                    <SelectItem key={s} value={s}>{storageLabel(t, s)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="min">Seuil minimum de stock</Label>

@@ -66,6 +66,8 @@ export interface MaintenanceLog {
   equipment?: Equipment
 }
 
+export type StorageCondition = 'ambient' | 'refrigerator' | 'freezer'
+
 export interface ItemType {
   id: string
   name: string
@@ -73,6 +75,7 @@ export interface ItemType {
   unit: string
   min_threshold: number
   track_lots: boolean
+  storage_condition: StorageCondition | null
   low_stock_alerted_at: string | null
   notes: string | null
   created_at: string
