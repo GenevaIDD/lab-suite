@@ -13,6 +13,11 @@ export interface DeliveryPoint {
   received_at: string  // ISO string or YYYY-MM-DD
 }
 
+export interface DisposalPoint {
+  quantity: number
+  disposed_at: string  // ISO string or YYYY-MM-DD
+}
+
 export interface TimelinePoint {
   date: string
   countQty: number | null
@@ -53,6 +58,17 @@ export function deliveriesBetween(
     .reduce((sum, d) => sum + d.quantity, 0)
 }
 
+/** Disposals recorded strictly after start and on/before end (YYYY-MM-DD comparison) */
+export function disposalsBetween(
+  disposals: DisposalPoint[],
+  start: string,
+  end: string,
+): number {
+  return disposals
+    .filter(d => dayStr(d.disposed_at) > start && dayStr(d.disposed_at) <= end)
+    .reduce((sum, d) => sum + d.quantity, 0)
+}
+
 /** Merge counts + deliveries into a single sorted timeline for the stock chart */
 export function buildTimeline(
   counts: CountPoint[],
@@ -82,6 +98,7 @@ export function buildTimeline(
 export function buildBurnRate(
   counts: CountPoint[],
   deliveries: DeliveryPoint[],
+  disposals: DisposalPoint[] = [],
   fmtShort: (d: string) => string = (d) => d.slice(0, 7),
   fmtLong:  (d: string) => string = (d) => d.slice(0, 10),
 ): BurnPeriod[] {
@@ -97,7 +114,9 @@ export function buildBurnRate(
     if (days <= 0) continue
 
     const between  = deliveriesBetween(deliveries, start, end)
-    const rawConsumed = prev.quantity + between - curr.quantity
+    // Disposed stock is an explained reduction — not consumption.
+    const disposed = disposalsBetween(disposals, start, end)
+    const rawConsumed = prev.quantity + between - disposed - curr.quantity
     const consumed = Math.max(0, rawConsumed)
     const rate = Math.round((consumed / days) * 100) / 100
 
@@ -119,6 +138,7 @@ export function buildBurnRate(
 export function buildAnomalies(
   counts: CountPoint[],
   deliveries: DeliveryPoint[],
+  disposals: DisposalPoint[] = [],
 ): Anomaly[] {
   if (counts.length < 2) return []
   const anomalies: Anomaly[] = []
@@ -130,7 +150,8 @@ export function buildAnomalies(
     const end   = dayStr(curr.counted_at)
 
     const between     = deliveriesBetween(deliveries, start, end)
-    const rawConsumed = prev.quantity + between - curr.quantity
+    const disposed    = disposalsBetween(disposals, start, end)
+    const rawConsumed = prev.quantity + between - disposed - curr.quantity
 
     if (rawConsumed < 0) {
       anomalies.push({

@@ -102,6 +102,19 @@ export interface ItemSource {
   created_at: string
 }
 
+export type DisposalReason = 'expired' | 'damaged' | 'contaminated' | 'other'
+
+export interface Disposal {
+  id: string
+  item_type_id: string
+  lot_id: string | null
+  quantity: number
+  reason: string | null
+  disposed_at: string
+  disposed_by: string | null
+  created_at: string
+}
+
 export interface StockCount {
   id: string
   item_type_id: string

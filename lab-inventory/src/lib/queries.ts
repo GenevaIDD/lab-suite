@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal } from '@/types/database'
 
 export function useProfiles() {
   return useQuery({
@@ -102,6 +102,22 @@ export function useItemCounts(itemTypeId: string | undefined) {
         .order('counted_at', { ascending: true })
       if (error) throw error
       return data ?? []
+    },
+  })
+}
+
+export function useItemDisposals(itemTypeId: string | undefined) {
+  return useQuery({
+    queryKey: ['disposals', itemTypeId],
+    enabled: !!itemTypeId,
+    queryFn: async (): Promise<Disposal[]> => {
+      const { data, error } = await db
+        .from('disposals')
+        .select('*')
+        .eq('item_type_id', itemTypeId!)
+        .order('disposed_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as Disposal[]
     },
   })
 }

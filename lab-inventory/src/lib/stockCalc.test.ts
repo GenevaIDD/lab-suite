@@ -9,6 +9,7 @@ import {
 // ── helpers ───────────────────────────────────────────────────
 const count = (qty: number, date: string) => ({ quantity: qty, counted_at: date })
 const delivery = (qty: number, date: string) => ({ quantity: qty, received_at: date })
+const disposal = (qty: number, date: string) => ({ quantity: qty, disposed_at: date })
 
 describe('deliveriesBetween', () => {
   it('sums deliveries strictly after start and on/before end', () => {
@@ -139,11 +140,33 @@ describe('buildBurnRate', () => {
     const result = buildBurnRate(
       [count(100, '2026-01-01'), count(50, '2026-02-01')],
       [],
+      [],
       d => `short:${d}`,
       d => `long:${d}`,
     )
     expect(result[0].period).toBe('short:2026-01-01 – short:2026-02-01')
     expect(result[0].label).toBe('long:2026-01-01 → long:2026-02-01')
+  })
+
+  it('excludes disposed stock from consumption', () => {
+    // 100 → 40 over 10 days, but 30 were disposed (destroyed, not used).
+    // True consumption = 100 - 30 - 40 = 30, over 10 days = 3/day.
+    const result = buildBurnRate(
+      [count(100, '2026-01-01'), count(40, '2026-01-11')],
+      [],
+      [disposal(30, '2026-01-05')],
+    )
+    expect(result[0].consumed).toBe(30)
+    expect(result[0].burnRate).toBe(3)
+  })
+
+  it('ignores disposals outside the period', () => {
+    const result = buildBurnRate(
+      [count(100, '2026-01-01'), count(40, '2026-01-11')],
+      [],
+      [disposal(30, '2026-02-20')], // after the period
+    )
+    expect(result[0].consumed).toBe(60) // disposal not counted, full drop is "consumed"
   })
 })
 

@@ -490,6 +490,32 @@ create policy "admin+lab_manager write docs"    on equipment_documents for all u
 );
 
 -- ============================================================
+-- Disposals
+-- Records lot stock destroyed/discarded (expired, damaged, etc.).
+-- Kept separate from consumption so burn-rate excludes disposed quantity.
+-- ============================================================
+
+create table disposals (
+  id            uuid primary key default uuid_generate_v4(),
+  item_type_id  uuid not null references item_types(id) on delete cascade,
+  lot_id        uuid references lots(id) on delete set null,
+  quantity      numeric(10, 2) not null,
+  reason        text,
+  disposed_at   timestamptz not null default now(),
+  disposed_by   text,
+  created_at    timestamptz not null default now()
+);
+
+create index disp_item_idx on disposals(item_type_id);
+create index disp_date_idx on disposals(disposed_at desc);
+
+alter table disposals enable row level security;
+create policy "authenticated read disposals" on disposals for select using (auth.role() = 'authenticated');
+create policy "write disposals" on disposals for insert with check (
+  exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech', 'lab_team'))
+);
+
+-- ============================================================
 -- Storage bucket for equipment photos
 -- ============================================================
 

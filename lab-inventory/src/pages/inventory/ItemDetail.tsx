@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp, FlaskConical, Plus } from 'lucide-react'
+import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp, FlaskConical, Plus, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,16 +10,17 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StockChart, BurnChart } from '@/components/ui/MiniChart'
-import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots } from '@/lib/queries'
-import { useUpsertLot } from '@/lib/mutations'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots, useItemDisposals } from '@/lib/queries'
+import { useUpsertLot, useDiscardLot } from '@/lib/mutations'
 import { buildTimeline, buildBurnRate, buildAnomalies } from '@/lib/stockCalc'
 import { getExpiringLots } from '@/lib/lotCalc'
-import { useAuth, isAdmin } from '@/lib/auth'
+import { useAuth, isAdmin, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 import { ENABLE_MANUAL_LOT_ENTRY } from '@/lib/flags'
 import { cn, qtyStep } from '@/lib/utils'
 import { toast } from 'sonner'
-import type { InventoryLot } from '@/types/database'
+import type { InventoryLot, DisposalReason } from '@/types/database'
 
 function fmt(d: string) { return format(parseISO(d), 'd MMM yyyy') }
 
@@ -30,10 +31,12 @@ export function ItemDetail() {
   const { id } = useParams<{ id: string }>()
   const { profile } = useAuth()
   const canAddLot = ENABLE_MANUAL_LOT_ENTRY && isAdmin(profile)
+  const canDiscard = canManageStock(profile)
 
   const { data: item, isLoading } = useItemType(id)
   const { data: counts = [] }     = useItemCounts(id)
   const { data: deliveries = [] } = useItemDeliveries(id)
+  const { data: disposals = [] }  = useItemDisposals(id)
   const { data: sources = [] }    = useItemSources(id)
   const { data: stockRows = [] }  = useCurrentStock() as { data: StockRow[] }
   const { data: activeLots = [] } = useItemLots(id)
@@ -43,8 +46,8 @@ export function ItemDetail() {
   const lastCounted  = useMemo(() => stockRows.find(r => r.item_type_id === id)?.last_counted_at, [stockRows, id])
   const isLow        = item ? currentQty < item.min_threshold : false
   const timeline     = useMemo(() => buildTimeline(counts, deliveries), [counts, deliveries])
-  const burnRates    = useMemo(() => buildBurnRate(counts, deliveries), [counts, deliveries])
-  const anomalies    = useMemo(() => buildAnomalies(counts, deliveries), [counts, deliveries])
+  const burnRates    = useMemo(() => buildBurnRate(counts, deliveries, disposals), [counts, deliveries, disposals])
+  const anomalies    = useMemo(() => buildAnomalies(counts, deliveries, disposals), [counts, deliveries, disposals])
   const expiringLots = useMemo(() => getExpiringLots(activeLots, 60), [activeLots])
   const avgBurnRate  = useMemo(() => {
     if (!burnRates.length) return null
@@ -140,11 +143,12 @@ export function ItemDetail() {
                     <TableHead>N° lot</TableHead>
                     <TableHead className="text-right">Qté restante</TableHead>
                     <TableHead>Statut</TableHead>
+                    {canDiscard && <TableHead className="w-10" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {activeLots.map(lot => (
-                    <LotRow key={lot.id} lot={lot} unit={item.unit} />
+                    <LotRow key={lot.id} lot={lot} unit={item.unit} canDiscard={canDiscard} disposedBy={profile?.full_name ?? null} />
                   ))}
                 </TableBody>
               </Table>
@@ -385,7 +389,7 @@ function AddLotDialog({ itemTypeId, unit }: { itemTypeId: string; unit: string }
   )
 }
 
-function LotRow({ lot, unit }: { lot: InventoryLot; unit: string }) {
+function LotRow({ lot, unit, canDiscard, disposedBy }: { lot: InventoryLot; unit: string; canDiscard: boolean; disposedBy: string | null }) {
   const today = new Date().toISOString().slice(0, 10)
   const daysUntil = Math.ceil((new Date(lot.expiry_date).getTime() - new Date(today).getTime()) / 86400000)
   const expired  = daysUntil < 0
@@ -408,6 +412,77 @@ function LotRow({ lot, unit }: { lot: InventoryLot; unit: string }) {
           ? <Badge className="text-xs bg-amber-500 hover:bg-amber-500/90">Expire bientôt</Badge>
           : <Badge variant="outline" className="text-xs">OK</Badge>}
       </TableCell>
+      {canDiscard && (
+        <TableCell className="text-right">
+          <DiscardLotDialog lot={lot} unit={unit} disposedBy={disposedBy} />
+        </TableCell>
+      )}
     </TableRow>
+  )
+}
+
+const DISPOSAL_REASONS: DisposalReason[] = ['expired', 'damaged', 'contaminated', 'other']
+
+function DiscardLotDialog({ lot, unit, disposedBy }: { lot: InventoryLot; unit: string; disposedBy: string | null }) {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState<DisposalReason>('expired')
+  const discard = useDiscardLot()
+
+  async function submit() {
+    try {
+      await discard.mutateAsync({
+        lotId: lot.id,
+        itemTypeId: lot.item_type_id,
+        quantity: lot.quantity_remaining,
+        reason,
+        disposedBy,
+      })
+      toast.success(t('disposal.success'))
+      setOpen(false)
+    } catch (err) {
+      toast.error(`${t('disposal.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={
+        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" title={t('disposal.btn')}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      } />
+      <DialogContent>
+        <DialogHeader><DialogTitle>{t('disposal.title')}</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-3">
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+            <span className="font-medium">{lot.manufacturer}</span>
+            {lot.lot_number && <span className="text-muted-foreground"> · {lot.lot_number}</span>}
+            <span className="text-muted-foreground"> · {t('disposal.qty')} {lot.quantity_remaining} {unit}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">{t('disposal.desc')}</p>
+          <div className="space-y-1">
+            <Label>{t('disposal.reason')}</Label>
+            <Select value={reason} onValueChange={(v) => setReason((v ?? 'expired') as DisposalReason)}>
+              <SelectTrigger className="w-full">
+                <SelectValue>{(v) => t(`disposal.reason.${String(v)}` as never)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {DISPOSAL_REASONS.map((r) => (
+                  <SelectItem key={r} value={r}>{t(`disposal.reason.${r}` as never)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('users.cancel')}</Button>
+          <Button type="button" variant="destructive" onClick={submit} disabled={discard.isPending}>
+            {discard.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+            {t('disposal.confirm')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

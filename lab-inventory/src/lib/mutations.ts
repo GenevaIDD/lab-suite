@@ -495,6 +495,25 @@ export function useCompleteSession() {
         if (lotError) throw lotError
       }
 
+      // Snapshot each lot-tracked item's new total into stock_counts, so lot
+      // items get an item-level stock time series for burn-rate calculation.
+      // (The session counts all of an item's active lots, so the sum is the total.)
+      const totalsByItem = new Map<string, number>()
+      for (const e of lotEntries) {
+        totalsByItem.set(e.item_type_id, (totalsByItem.get(e.item_type_id) ?? 0) + e.counted_quantity!)
+      }
+      if (totalsByItem.size > 0) {
+        const lotSnapshots = [...totalsByItem.entries()].map(([item_type_id, total]) => ({
+          item_type_id,
+          quantity: total,
+          counted_at: new Date(targetDate).toISOString(),
+          counted_by: null,
+          notes: null,
+        }))
+        const { error: snapErr } = await supabase.from('stock_counts').insert(lotSnapshots as never)
+        if (snapErr) throw snapErr
+      }
+
       const { error } = await db
         .from('inventory_sessions')
         .update({ status: 'completed', completed_at: new Date().toISOString() })
@@ -505,6 +524,7 @@ export function useCompleteSession() {
       qc.invalidateQueries({ queryKey: ['inventory_sessions'] })
       qc.invalidateQueries({ queryKey: ['current_stock'] })
       qc.invalidateQueries({ queryKey: ['lots'] })
+      qc.invalidateQueries({ queryKey: ['stock_counts'] })
     },
   })
 }
@@ -582,6 +602,47 @@ export function useUpdateLotCount() {
       qc.invalidateQueries({ queryKey: ['lots', vars.itemTypeId] })
       qc.invalidateQueries({ queryKey: ['lots', 'all_active'] })
       qc.invalidateQueries({ queryKey: ['current_stock'] })
+    },
+  })
+}
+
+// Discard/destroy a lot (expired, damaged…). Records a disposal (an explained
+// reduction that burn-rate excludes) and exhausts the lot. Not consumption.
+export function useDiscardLot() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      lotId,
+      itemTypeId,
+      quantity,
+      reason,
+      disposedBy,
+    }: {
+      lotId: string
+      itemTypeId: string
+      quantity: number
+      reason: string | null
+      disposedBy: string | null
+    }) => {
+      const { error: dErr } = await db.from('disposals').insert({
+        item_type_id: itemTypeId,
+        lot_id: lotId,
+        quantity,
+        reason,
+        disposed_by: disposedBy,
+      })
+      if (dErr) throw dErr
+      const { error: lErr } = await db.from('lots').update({
+        quantity_remaining: 0,
+        exhausted_at: new Date().toISOString(),
+      }).eq('id', lotId)
+      if (lErr) throw lErr
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['lots', vars.itemTypeId] })
+      qc.invalidateQueries({ queryKey: ['lots', 'all_active'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+      qc.invalidateQueries({ queryKey: ['disposals', vars.itemTypeId] })
     },
   })
 }
