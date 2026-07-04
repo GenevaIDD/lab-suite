@@ -293,6 +293,39 @@ export function useCreateDelivery() {
   })
 }
 
+export function useUpdateDelivery() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<Delivery> & { id: string }) =>
+      tryWriteOrQueue<Delivery>('update', 'deliveries', payload, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deliveries'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+    },
+  })
+}
+
+// Delete a delivery. For lot-tracked items the delivery may have created a lot
+// (lots.delivery_id); the caller decides whether to remove that lot too.
+export function useDeleteDelivery() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ deliveryId, lotIdToRemove }: { deliveryId: string; itemTypeId: string; lotIdToRemove: string | null }) => {
+      if (lotIdToRemove) {
+        const { error: lErr } = await db.from('lots').delete().eq('id', lotIdToRemove)
+        if (lErr) throw lErr
+      }
+      const { error } = await supabase.from('deliveries').delete().eq('id', deliveryId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deliveries'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+      qc.invalidateQueries({ queryKey: ['lots'] })
+    },
+  })
+}
+
 export function useCreateStockCount() {
   const qc = useQueryClient()
   return useMutation({

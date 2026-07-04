@@ -366,6 +366,15 @@ create policy "admin+lab_manager+tech write deliveries" on deliveries
   for insert with check (
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
+-- admin+lab_manager can correct mistakes (update/delete a delivery)
+create policy "admin+lab_manager update deliveries" on deliveries
+  for update using (
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+  );
+create policy "admin+lab_manager delete deliveries" on deliveries
+  for delete using (
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+  );
 
 -- Lots: all authenticated can read; admin+lab_manager+tech can write
 create policy "authenticated read lots"    on lots for select using (auth.role() = 'authenticated');

@@ -23,7 +23,8 @@ import {
 import { useItemTypes, useDeliveries, useCurrentStock, useActiveSession, useAllActiveLots } from '@/lib/queries'
 import type { XlsxSheet } from '@/lib/export'
 import { useLang } from '@/lib/i18n'
-import { useAuth, canManageStock } from '@/lib/auth'
+import { useAuth, canManageStock, canWrite } from '@/lib/auth'
+import { DeliveryActions } from '@/components/inventory/DeliveryActions'
 import { cn } from '@/lib/utils'
 
 interface StockRow {
@@ -45,6 +46,7 @@ export function Inventory() {
 
   const { t } = useLang()
   const { profile } = useAuth()
+  const canEditDeliveries = canWrite(profile)
   const { data: itemTypes = [], isLoading: loadingItems, error: itemsError } = useItemTypes()
   const { data: stockRows = [] } = useCurrentStock() as { data: StockRow[] }
   const { data: deliveries = [], isLoading: loadingDeliveries } = useDeliveries()
@@ -258,6 +260,7 @@ export function Inventory() {
                     <TableHead className="text-right">{t('inv.col.qty.short')}</TableHead>
                     <TableHead>{t('inv.col.lot')}</TableHead>
                     <TableHead>{t('inv.col.expiry')}</TableHead>
+                    {canEditDeliveries && <TableHead className="w-20 text-right">{t('users.col.actions')}</TableHead>}
                   </>
                 )}
               </TableRow>
@@ -308,6 +311,7 @@ export function Inventory() {
                     <TableCell className="text-right tabular-nums">{d.quantity}</TableCell>
                     <TableCell className="text-muted-foreground">{d.lot_number ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{d.expiry_date ? format(parseISO(d.expiry_date), 'd MMM yyyy') : '—'}</TableCell>
+                    {canEditDeliveries && <TableCell className="text-right"><DeliveryActions delivery={d} /></TableCell>}
                   </TableRow>
                 ))
               )}

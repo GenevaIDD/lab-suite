@@ -106,6 +106,23 @@ export function useItemCounts(itemTypeId: string | undefined) {
   })
 }
 
+// Lots created by a specific delivery (lots.delivery_id). Used when deleting a
+// delivery to offer removing the lot it created. Enabled on demand.
+export function useDeliveryLots(deliveryId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['lots', 'by_delivery', deliveryId],
+    enabled: !!deliveryId && enabled,
+    queryFn: async (): Promise<InventoryLot[]> => {
+      const { data, error } = await db
+        .from('lots')
+        .select('*')
+        .eq('delivery_id', deliveryId!)
+      if (error) throw error
+      return (data ?? []) as InventoryLot[]
+    },
+  })
+}
+
 export function useItemDisposals(itemTypeId: string | undefined) {
   return useQuery({
     queryKey: ['disposals', itemTypeId],
