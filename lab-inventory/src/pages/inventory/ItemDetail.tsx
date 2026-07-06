@@ -73,7 +73,7 @@ export function ItemDetail() {
     <div className="space-y-6 max-w-4xl">
       <Link to="/inventory" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Inventaire
+        {t('nav.inventory')}
       </Link>
 
       {/* Header */}
@@ -86,30 +86,30 @@ export function ItemDetail() {
               <Badge variant="outline">{storageLabel(t, item.storage_condition)}</Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Unité : {item.unit}</p>
+          <p className="text-sm text-muted-foreground mt-1">{t('item.unit')} {item.unit}</p>
         </div>
         <Link to={`/inventory/items/${id}/edit`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
           <Edit className="h-4 w-4 mr-1" />
-          Modifier
+          {t('action.edit')}
         </Link>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard label="Stock actuel" value={`${currentQty} ${item.unit}`}
-          sub={lastCounted ? `Compté ${fmt(lastCounted)}` : 'Jamais compté'} urgent={isLow} />
-        <StatCard label="Seuil minimum" value={`${item.min_threshold} ${item.unit}`} />
-        <StatCard label="Taux moyen" value={avgBurnRate !== null ? `${avgBurnRate} / j` : '—'}
-          sub={burnRates.length < 2 ? 'Pas assez de données' : `${burnRates.length} période${burnRates.length > 1 ? 's' : ''}`} />
-        <StatCard label="Jours restants" value={daysRemaining !== null ? `${daysRemaining} j` : '—'}
+        <StatCard label={t('item.stat.stock')} value={`${currentQty} ${item.unit}`}
+          sub={lastCounted ? `${t('item.counted')} ${fmt(lastCounted)}` : t('item.never.counted')} urgent={isLow} />
+        <StatCard label={t('item.stat.min')} value={`${item.min_threshold} ${item.unit}`} />
+        <StatCard label={t('item.stat.rate')} value={avgBurnRate !== null ? `${avgBurnRate} ${t('item.per.day')}` : '—'}
+          sub={burnRates.length < 2 ? t('item.stat.nodata') : `${burnRates.length} ${t('item.stat.rate.sub')}`} />
+        <StatCard label={t('item.stat.days')} value={daysRemaining !== null ? `${daysRemaining} ${t('item.days.unit')}` : '—'}
           urgent={daysRemaining !== null && daysRemaining < 30}
-          sub={daysRemaining !== null && daysRemaining < 30 ? 'À commander bientôt' : undefined} />
+          sub={daysRemaining !== null && daysRemaining < 30 ? t('item.stat.order') : undefined} />
       </div>
 
       {isLow && (
         <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          Stock en-dessous du seuil minimum ({item.min_threshold} {item.unit})
+          {t('item.low.alert')} ({item.min_threshold} {item.unit})
         </div>
       )}
 
@@ -119,10 +119,10 @@ export function ItemDetail() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <FlaskConical className="h-4 w-4 text-muted-foreground" />
-              Lots actifs
+              {t('item.lots.active')}
               {expiringLots.length > 0 && (
                 <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
-                  {expiringLots.length} expire{expiringLots.length > 1 ? 'nt' : ''} bientôt
+                  {expiringLots.length} {expiringLots.length > 1 ? t('item.lots.expiring.pl') : t('item.lots.expiring')}
                 </Badge>
               )}
               {canAddLot && id && (
@@ -135,19 +135,17 @@ export function ItemDetail() {
           <CardContent className="p-0">
             {activeLots.length === 0 ? (
               <p className="text-sm text-muted-foreground px-4 py-4">
-                {canAddLot
-                  ? 'Aucun lot actif — ajoutez un lot ci-dessus ou enregistrez une livraison.'
-                  : 'Aucun lot actif — enregistrez une livraison pour créer des lots.'}
+                {canAddLot ? t('item.lots.none.add') : t('item.lots.none')}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Fabricant</TableHead>
-                    <TableHead>Expiration</TableHead>
-                    <TableHead>N° lot</TableHead>
-                    <TableHead className="text-right">Qté restante</TableHead>
-                    <TableHead>Statut</TableHead>
+                    <TableHead>{t('label.manufacturer')}</TableHead>
+                    <TableHead>{t('item.col.expiration')}</TableHead>
+                    <TableHead>{t('label.lot')}</TableHead>
+                    <TableHead className="text-right">{t('item.qty.remaining')}</TableHead>
+                    <TableHead>{t('label.status')}</TableHead>
                     {canDiscard && <TableHead className="w-10" />}
                   </TableRow>
                 </TableHeader>
@@ -160,7 +158,7 @@ export function ItemDetail() {
             )}
             {allLots.filter(l => l.exhausted_at !== null).length > 0 && (
               <p className="text-xs text-muted-foreground px-4 py-2 border-t">
-                {allLots.filter(l => l.exhausted_at !== null).length} lot(s) épuisé(s) non affichés.
+                {allLots.filter(l => l.exhausted_at !== null).length} {t('item.lots.exhausted')}
               </p>
             )}
           </CardContent>
@@ -169,10 +167,10 @@ export function ItemDetail() {
 
       {/* Stock chart */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Stock au fil du temps</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t('item.stock.chart')}</CardTitle></CardHeader>
         <CardContent>
           {timeline.length === 0
-            ? <Empty text="Aucun comptage enregistré pour cet article." />
+            ? <Empty text={t('item.stock.empty')} />
             : <StockChart data={timeline} minThreshold={item.min_threshold} />}
         </CardContent>
       </Card>
@@ -182,12 +180,12 @@ export function ItemDetail() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
-            Taux de consommation par période
+            {t('item.burn.chart')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {burnRates.length === 0
-            ? <Empty text="Au moins deux comptages sont nécessaires pour calculer le taux de consommation." />
+            ? <Empty text={t('item.burn.empty')} />
             : <BurnChart data={burnRates} avgRate={avgBurnRate} unit={item.unit} />}
         </CardContent>
       </Card>
@@ -195,7 +193,7 @@ export function ItemDetail() {
       {/* Sources */}
       {sources.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Fabricants / fournisseurs</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('item.sources')}</CardTitle></CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {sources.map(s => (
@@ -210,20 +208,20 @@ export function ItemDetail() {
 
       {/* Delivery history */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Historique des livraisons</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t('item.docs.history')}</CardTitle></CardHeader>
         <CardContent className="p-0">
           {deliveries.length === 0
-            ? <div className="py-8 text-center text-sm text-muted-foreground">Aucune livraison enregistrée.</div>
+            ? <div className="py-8 text-center text-sm text-muted-foreground">{t('item.no.delivery')}</div>
             : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Quantité</TableHead>
-                    <TableHead>Fabricant</TableHead>
-                    <TableHead>N° lot</TableHead>
-                    <TableHead>Expiration</TableHead>
-                    <TableHead>Reçu par</TableHead>
+                    <TableHead>{t('label.date')}</TableHead>
+                    <TableHead className="text-right">{t('label.quantity')}</TableHead>
+                    <TableHead>{t('label.manufacturer')}</TableHead>
+                    <TableHead>{t('label.lot')}</TableHead>
+                    <TableHead>{t('item.col.expiration')}</TableHead>
+                    <TableHead>{t('label.received.by')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,31 +249,31 @@ export function ItemDetail() {
               <TrendingUp className="h-4 w-4 shrink-0" />
               <p className="text-xs font-semibold">
                 {anomalies.length === 1
-                  ? 'Augmentation inexpliquée détectée'
-                  : `${anomalies.length} augmentations inexpliquées détectées`}
+                  ? t('item.anomaly.title')
+                  : `${anomalies.length} ${t('item.anomaly.title.pl')}`}
               </p>
             </div>
             {anomalies.map((a, i) => (
               <p key={i} className="text-xs text-amber-700 pl-6">
-                Le {fmt(a.countDate)} : +{a.unexplained} {item?.unit} sans livraison enregistrée
-                {a.deliveriesBetween > 0 ? ` (${a.deliveriesBetween} reçu, mais stock augmente quand même)` : ''}.
-                Vérifiez si une livraison n'a pas été saisie.
+                {t('item.anomaly.on')} {fmt(a.countDate)} : +{a.unexplained} {item?.unit} {t('item.anomaly.without')}
+                {a.deliveriesBetween > 0 ? ` (${a.deliveriesBetween} ${t('item.anomaly.received')})` : ''}.
+                {' '}{t('item.anomaly.check')}
               </p>
             ))}
           </div>
         )}
-        <CardHeader><CardTitle className="text-base">Historique des comptages</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t('item.count.history')}</CardTitle></CardHeader>
         <CardContent className="p-0">
           {counts.length === 0
-            ? <div className="py-8 text-center text-sm text-muted-foreground">Aucun comptage enregistré.</div>
+            ? <div className="py-8 text-center text-sm text-muted-foreground">{t('item.no.count')}</div>
             : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Quantité</TableHead>
-                    <TableHead>Compté par</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>{t('label.date')}</TableHead>
+                    <TableHead className="text-right">{t('label.quantity')}</TableHead>
+                    <TableHead>{t('item.col.counted.by')}</TableHead>
+                    <TableHead>{t('label.notes')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -295,7 +293,7 @@ export function ItemDetail() {
 
       {item.notes && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('label.notes')}</CardTitle></CardHeader>
           <CardContent><p className="text-sm whitespace-pre-wrap">{item.notes}</p></CardContent>
         </Card>
       )}
@@ -395,6 +393,7 @@ function AddLotDialog({ itemTypeId, unit }: { itemTypeId: string; unit: string }
 }
 
 function LotRow({ lot, unit, canDiscard, disposedBy }: { lot: InventoryLot; unit: string; canDiscard: boolean; disposedBy: string | null }) {
+  const { t } = useLang()
   const today = new Date().toISOString().slice(0, 10)
   const daysUntil = Math.ceil((new Date(lot.expiry_date).getTime() - new Date(today).getTime()) / 86400000)
   const expired  = daysUntil < 0
@@ -405,17 +404,17 @@ function LotRow({ lot, unit, canDiscard, disposedBy }: { lot: InventoryLot; unit
       <TableCell className="font-medium">{lot.manufacturer}</TableCell>
       <TableCell className={cn('tabular-nums', expired ? 'text-destructive' : expiring ? 'text-amber-600' : 'text-muted-foreground')}>
         {format(parseISO(lot.expiry_date), 'd MMM yyyy')}
-        {expired  && <span className="ml-1 text-xs">(expiré)</span>}
-        {expiring && !expired && <span className="ml-1 text-xs">(dans {daysUntil}j)</span>}
+        {expired  && <span className="ml-1 text-xs">({t('item.lot.expired')})</span>}
+        {expiring && !expired && <span className="ml-1 text-xs">({t('item.lot.days')} {daysUntil}{t('item.days.unit')})</span>}
       </TableCell>
       <TableCell className="text-muted-foreground">{lot.lot_number ?? '—'}</TableCell>
       <TableCell className="text-right font-semibold tabular-nums">{lot.quantity_remaining} {unit}</TableCell>
       <TableCell>
         {expired
-          ? <Badge variant="destructive" className="text-xs">Expiré</Badge>
+          ? <Badge variant="destructive" className="text-xs">{t('item.lot.expired.badge')}</Badge>
           : expiring
-          ? <Badge className="text-xs bg-amber-500 hover:bg-amber-500/90">Expire bientôt</Badge>
-          : <Badge variant="outline" className="text-xs">OK</Badge>}
+          ? <Badge className="text-xs bg-amber-500 hover:bg-amber-500/90">{t('item.lot.expiring.badge')}</Badge>
+          : <Badge variant="outline" className="text-xs">{t('equip.status.ok')}</Badge>}
       </TableCell>
       {canDiscard && (
         <TableCell className="text-right">

@@ -163,7 +163,7 @@ export function Inventory() {
           <div className="flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-primary shrink-0" />
             <span className="text-sm font-medium">
-              {activeSession.status === 'paused' ? 'Session d\'inventaire en pause' : 'Session d\'inventaire en cours'}
+              {activeSession.status === 'paused' ? t('inv.resume.paused') : t('inv.resume.active')}
             </span>
           </div>
           <Link
@@ -171,7 +171,7 @@ export function Inventory() {
             className={cn(buttonVariants({ size: 'sm' }))}
           >
             <Play className="h-3.5 w-3.5 mr-1" />
-            {activeSession.status === 'paused' ? 'Reprendre' : 'Continuer'}
+            {activeSession.status === 'paused' ? t('inv.resume.btn') : t('inv.resume.continue')}
           </Link>
         </div>
       )}
@@ -194,17 +194,17 @@ export function Inventory() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">Nom (A–Z)</SelectItem>
-                <SelectItem value="category">Catégorie</SelectItem>
-                <SelectItem value="status">Statut (stock faible d'abord)</SelectItem>
-                <SelectItem value="last_counted">Dernier comptage (ancien d'abord)</SelectItem>
+                <SelectItem value="name">{t('inv.sort.name')}</SelectItem>
+                <SelectItem value="category">{t('inv.sort.category')}</SelectItem>
+                <SelectItem value="status">{t('inv.sort.status')}</SelectItem>
+                <SelectItem value="last_counted">{t('inv.sort.last.count')}</SelectItem>
               </SelectContent>
             </Select>
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
           <Link to="/inventory/sessions" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
-            Historique
+            {t('inv.btn.history')}
           </Link>
           {tab === 'items' && (
             <button type="button" onClick={exportInventory} className={cn(buttonVariants({ variant: 'outline' }))}>
@@ -273,7 +273,7 @@ export function Inventory() {
                 loadingItems ? (
                   <TableRow><TableCell colSpan={7} className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
                 ) : itemsError ? (
-                  <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">Impossible de charger — vérifier la configuration Supabase.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">{t('inv.load.error')}</TableCell></TableRow>
                 ) : itemRows.length === 0 ? (
                   <TableRow><TableCell colSpan={7}><EmptyState search={search} target="items" /></TableCell></TableRow>
                 ) : (
@@ -333,22 +333,23 @@ export function Inventory() {
 }
 
 function EmptyState({ search, target }: { search: string; target: 'items' | 'deliveries' }) {
+  const { t } = useLang()
   return (
     <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
       <Package className="h-8 w-8 opacity-30" />
       <p className="text-sm">
         {search
-          ? 'Aucun résultat.'
+          ? t('inv.empty.search')
           : target === 'items'
-            ? 'Aucun article enregistré.'
-            : 'Aucune livraison enregistrée.'}
+            ? t('inv.empty.items')
+            : t('inv.empty.deliveries')}
       </p>
       {!search && (
         <Link
           to={target === 'items' ? '/inventory/new' : '/inventory/delivery/new'}
           className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
         >
-          {target === 'items' ? 'Ajouter le premier article' : 'Enregistrer la première livraison'}
+          {target === 'items' ? t('inv.add.first') : t('inv.add.first.delivery')}
         </Link>
       )}
     </div>

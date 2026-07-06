@@ -27,11 +27,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ItemCombobox } from '@/components/ui/ItemCombobox'
 import { useItemTypes, useItemSources } from '@/lib/queries'
 import { useCreateDelivery, useCreateItemSource, useUpsertLot } from '@/lib/mutations'
+import { useLang } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export function DeliveryNew() {
   const navigate = useNavigate()
+  const { t } = useLang()
   const { data: itemTypes = [], isLoading: loadingTypes } = useItemTypes()
   const createDelivery = useCreateDelivery()
   const upsertLot = useUpsertLot()
@@ -52,15 +54,15 @@ export function DeliveryNew() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!itemTypeId || !quantity) {
-      toast.error('L\'article et la quantité sont requis')
+      toast.error(t('delivnew.item.required'))
       return
     }
     if (isTracked && !itemSourceId) {
-      toast.error('Le fabricant est requis pour cet article (suivi par lot)')
+      toast.error(t('delivnew.mfr.required'))
       return
     }
     if (isTracked && !expiryDate) {
-      toast.error('La date d\'expiration est requise pour cet article (suivi par lot)')
+      toast.error(t('delivnew.exp.required'))
       return
     }
     try {
@@ -89,10 +91,10 @@ export function DeliveryNew() {
           })
         }
       }
-      toast.success(navigator.onLine ? 'Livraison enregistrée' : 'Sauvegardé hors ligne')
+      toast.success(navigator.onLine ? t('delivnew.saved') : t('new.saved.offline'))
       navigate('/inventory')
     } catch (err) {
-      toast.error(`Erreur : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${(err as Error).message}`)
     }
   }
 
@@ -100,17 +102,17 @@ export function DeliveryNew() {
     <form onSubmit={onSubmit} className="space-y-6 max-w-2xl">
       <Link to="/inventory" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Retour à l'inventaire
+        {t('inv.back')}
       </Link>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Enregistrer une livraison</CardTitle>
-          <p className="text-sm text-muted-foreground">Enregistrez l'arrivée de stock d'un fournisseur.</p>
+          <CardTitle className="text-base">{t('delivnew.title')}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t('delivnew.desc')}</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="item">Article *</Label>
+            <Label htmlFor="item">{t('inv.col.item')} *</Label>
             <ItemCombobox
               id="item"
               items={itemTypes}
@@ -120,28 +122,28 @@ export function DeliveryNew() {
             />
             {!loadingTypes && itemTypes.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                Aucun article enregistré. <Link to="/inventory/new" className="underline">Ajouter d'abord</Link>.
+                {t('delivnew.no.items')} <Link to="/inventory/new" className="underline">{t('delivnew.add.first')}</Link>.
               </p>
             )}
           </div>
 
           {itemTypeId && (
             <div className="space-y-1">
-              <Label htmlFor="source">Fabricant / source {isTracked && <span className="text-destructive">*</span>}</Label>
+              <Label htmlFor="source">{t('delivnew.source')} {isTracked && <span className="text-destructive">*</span>}</Label>
               <div className="flex gap-2">
                 <Select value={itemSourceId} onValueChange={(v) => setItemSourceId(v ?? '')}>
                   <SelectTrigger id="source" className="w-full">
-                    <SelectValue placeholder="Sélectionner un fabricant…" />
+                    <SelectValue placeholder={t('delivnew.source.ph')} />
                   </SelectTrigger>
                   <SelectContent className="min-w-[280px]">
                     {sources.length === 0 ? (
                       <div className="px-2 py-3 text-sm text-muted-foreground text-center">
-                        Aucun fabricant enregistré — ajoutez-en un →
+                        {t('delivnew.no.mfr')}
                       </div>
                     ) : (
                       sources.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
-                          {s.manufacturer}{s.supplier ? ` (via ${s.supplier})` : ''}
+                          {s.manufacturer}{s.supplier ? ` (${t('src.via')} ${s.supplier})` : ''}
                         </SelectItem>
                       ))
                     )}
@@ -150,46 +152,46 @@ export function DeliveryNew() {
                 <NewSourceDialog itemTypeId={itemTypeId} onCreated={setItemSourceId} />
               </div>
               <p className="text-xs text-muted-foreground">
-                Les fabricants ajoutés ici seront aussi visibles sur la fiche de l'article.
+                {t('delivnew.source.hint')}
               </p>
             </div>
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="qty">Quantité * {selectedItem && <span className="text-muted-foreground font-normal">({selectedItem.unit})</span>}</Label>
+              <Label htmlFor="qty">{t('label.quantity')} * {selectedItem && <span className="text-muted-foreground font-normal">({selectedItem.unit})</span>}</Label>
               <Input id="qty" type="number" min={0} step={qtyStep(selectedItem?.unit)} value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="lot">Numéro de lot <span className="text-xs text-muted-foreground font-normal">(optionnel)</span></Label>
+              <Label htmlFor="lot">{t('label.lot')} <span className="text-xs text-muted-foreground font-normal">{t('delivnew.optional')}</span></Label>
               <Input id="lot" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="exp">Date d'expiration {isTracked && <span className="text-destructive">*</span>}</Label>
+              <Label htmlFor="exp">{t('label.expiry')} {isTracked && <span className="text-destructive">*</span>}</Label>
               <Input id="exp" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="rec-at">Reçu le *</Label>
+              <Label htmlFor="rec-at">{t('label.received.on')} *</Label>
               <Input id="rec-at" type="date" max={todayStr()} value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="rec-by">Reçu par</Label>
-              <Input id="rec-by" value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} placeholder="Name (optional)" />
+              <Label htmlFor="rec-by">{t('label.received.by')}</Label>
+              <Input id="rec-by" value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} placeholder={t('delivnew.by.ph')} />
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t('label.notes')}</Label>
             <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>Annuler</Link>
+        <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>{t('action.cancel')}</Link>
         <Button type="submit" disabled={createDelivery.isPending}>
           {createDelivery.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          Enregistrer la livraison
+          {t('delivnew.save')}
         </Button>
       </div>
     </form>
@@ -197,6 +199,7 @@ export function DeliveryNew() {
 }
 
 function NewSourceDialog({ itemTypeId, onCreated }: { itemTypeId: string; onCreated: (id: string) => void }) {
+  const { t } = useLang()
   const [open, setOpen] = useState(false)
   const [manufacturer, setManufacturer] = useState('')
   const [supplier, setSupplier] = useState('')
@@ -213,12 +216,12 @@ function NewSourceDialog({ itemTypeId, onCreated }: { itemTypeId: string; onCrea
         notes: null,
       })
       if (created?.id) onCreated(created.id)
-      toast.success(created ? 'Source added' : 'Saved offline — will sync when online')
+      toast.success(created ? t('delivnew.source.added') : t('new.saved.offline'))
       setOpen(false)
       setManufacturer('')
       setSupplier('')
     } catch (err) {
-      toast.error(`Failed: ${(err as Error).message}`)
+      toast.error(`${t('delivnew.failed')} : ${(err as Error).message}`)
     }
   }
 
@@ -228,30 +231,30 @@ function NewSourceDialog({ itemTypeId, onCreated }: { itemTypeId: string; onCrea
         render={
           <Button type="button" variant="outline" size="sm">
             <Plus className="h-3.5 w-3.5 mr-1" />
-            Nouveau fabricant
+            {t('delivnew.new.mfr')}
           </Button>
         }
       />
       <DialogContent>
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>Ajouter un fabricant</DialogTitle>
+            <DialogTitle>{t('delivnew.add.mfr')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-3">
             <div className="space-y-1">
-              <Label htmlFor="new-mfr">Fabricant</Label>
+              <Label htmlFor="new-mfr">{t('label.manufacturer')}</Label>
               <Input id="new-mfr" value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="new-sup">Fournisseur (optionnel)</Label>
+              <Label htmlFor="new-sup">{t('src.supplier.optional')}</Label>
               <Input id="new-sup" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('action.cancel')}</Button>
             <Button type="submit" disabled={!manufacturer || createSource.isPending}>
               {createSource.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              Save
+              {t('action.save')}
             </Button>
           </DialogFooter>
         </form>

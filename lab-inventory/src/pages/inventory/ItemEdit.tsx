@@ -74,10 +74,10 @@ export function ItemEdit() {
         storage_condition: (storage || null) as StorageCondition | null,
         notes: notes || null,
       })
-      toast.success('Article mis à jour')
+      toast.success(t('edit.updated'))
       navigate(`/inventory/items/${id}`)
     } catch (err) {
-      toast.error(`Erreur : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${(err as Error).message}`)
     }
   }
 
@@ -90,26 +90,26 @@ export function ItemEdit() {
   }
 
   if (!item) {
-    return <p className="text-sm text-muted-foreground">Article introuvable.</p>
+    return <p className="text-sm text-muted-foreground">{t('item.not.found')}</p>
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-6 max-w-2xl">
       <Link to={`/inventory/items/${id}`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Retour à l'article
+        {t('item.back')}
       </Link>
 
       <div>
-        <h2 className="text-xl font-semibold">Modifier l'article</h2>
+        <h2 className="text-xl font-semibold">{t('edit.title')}</h2>
         <p className="text-sm text-muted-foreground mt-1">{item.name}</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Détails</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t('edit.details')}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="name">Nom *</Label>
+            <Label htmlFor="name">{t('label.name')} *</Label>
             <Input
               id="name"
               value={name}
@@ -119,21 +119,21 @@ export function ItemEdit() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Catégorie *</Label>
+              <Label>{t('label.category')} *</Label>
               <SelectOrNew
                 value={category}
                 onChange={setCategory}
                 options={categories}
-                placeholder="Sélectionner ou ajouter…"
+                placeholder={t('itemform.select.ph')}
               />
             </div>
             <div className="space-y-1">
-              <Label>Unité *</Label>
+              <Label>{t('label.unit')} *</Label>
               <SelectOrNew
                 value={unit}
                 onChange={setUnit}
                 options={units}
-                placeholder="Sélectionner ou ajouter…"
+                placeholder={t('itemform.select.ph')}
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
@@ -152,7 +152,7 @@ export function ItemEdit() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="min">Seuil minimum de stock</Label>
+              <Label htmlFor="min">{t('label.min')}</Label>
               <Input
                 id="min"
                 type="number"
@@ -171,10 +171,9 @@ export function ItemEdit() {
                   className="mt-0.5 rounded"
                 />
                 <div>
-                  <p className="text-sm font-medium">Suivi par lot (dates d'expiration)</p>
+                  <p className="text-sm font-medium">{t('itemform.tracklots')}</p>
                   <p className="text-xs text-muted-foreground">
-                    Activer pour les réactifs, milieux et diagnostiques avec date d'expiration.
-                    Chaque livraison demandera : fabricant (requis), date d'expiration (requise), numéro de lot (optionnel).
+                    {t('itemform.tracklots.hint')}
                   </p>
                 </div>
               </label>
@@ -184,33 +183,33 @@ export function ItemEdit() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Fabricants / fournisseurs</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t('item.sources')}</CardTitle></CardHeader>
         <CardContent>
           <SourcesManager itemTypeId={id!} />
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Remarques</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t('label.notes')}</CardTitle></CardHeader>
         <CardContent>
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Observations, précisions…"
+            placeholder={t('itemform.notes.ph')}
           />
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-2">
         <Link to={`/inventory/items/${id}`} className={cn(buttonVariants({ variant: 'outline' }))}>
-          Annuler
+          {t('action.cancel')}
         </Link>
         <Button type="submit" disabled={updateItem.isPending}>
           {updateItem.isPending
             ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             : <Save className="h-4 w-4 mr-1" />}
-          Enregistrer
+          {t('action.save')}
         </Button>
       </div>
 
@@ -237,7 +236,7 @@ function DeleteItemDialog({ itemId, itemName }: { itemId: string; itemName: stri
       toast.success(t('item.delete.success'))
       navigate('/inventory')
     } catch (err) {
-      toast.error(`Erreur : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${(err as Error).message}`)
     }
   }
 
@@ -253,7 +252,7 @@ function DeleteItemDialog({ itemId, itemName }: { itemId: string; itemName: stri
           <p className="text-muted-foreground">{t('item.delete.desc')}</p>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('action.cancel')}</Button>
           <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteItem.isPending}>
             {deleteItem.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
             {t('item.delete.confirm')}
@@ -267,6 +266,7 @@ function DeleteItemDialog({ itemId, itemName }: { itemId: string; itemName: stri
 // ── Sources manager (live-save, outside the main form submit) ──────────────
 
 function SourcesManager({ itemTypeId }: { itemTypeId: string }) {
+  const { t } = useLang()
   const { data: sources = [], isLoading } = useItemSources(itemTypeId)
   const createSource = useCreateItemSource()
   const deleteSource = useDeleteItemSource()
@@ -285,19 +285,19 @@ function SourcesManager({ itemTypeId }: { itemTypeId: string }) {
       })
       setManufacturer('')
       setSupplier('')
-      toast.success('Fabricant ajouté')
+      toast.success(t('edit.mfr.added'))
     } catch (err) {
-      toast.error(`Erreur : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${(err as Error).message}`)
     }
   }
 
   async function remove(source: ItemSource) {
-    if (!confirm(`Supprimer "${source.manufacturer}" ?`)) return
+    if (!confirm(t('edit.mfr.confirm').replace('{m}', source.manufacturer))) return
     try {
       await deleteSource.mutateAsync({ id: source.id, itemTypeId })
-      toast.success('Fabricant supprimé')
+      toast.success(t('edit.mfr.removed'))
     } catch (err) {
-      toast.error(`Erreur : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${(err as Error).message}`)
     }
   }
 
@@ -311,14 +311,14 @@ function SourcesManager({ itemTypeId }: { itemTypeId: string }) {
             <li key={s.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
               <div className="text-sm">
                 <span className="font-medium">{s.manufacturer}</span>
-                {s.supplier && <span className="text-muted-foreground"> · via {s.supplier}</span>}
+                {s.supplier && <span className="text-muted-foreground"> · {t('src.via')} {s.supplier}</span>}
               </div>
               <button
                 type="button"
                 onClick={() => remove(s)}
                 disabled={deleteSource.isPending}
                 className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                title="Supprimer"
+                title={t('action.delete')}
               >
                 {deleteSource.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               </button>
@@ -329,31 +329,31 @@ function SourcesManager({ itemTypeId }: { itemTypeId: string }) {
 
       <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-end">
         <div className="space-y-1">
-          <Label htmlFor="src-mfr" className="text-xs">Fabricant</Label>
+          <Label htmlFor="src-mfr" className="text-xs">{t('label.manufacturer')}</Label>
           <Input
             id="src-mfr"
             value={manufacturer}
             onChange={(e) => setManufacturer(e.target.value)}
-            placeholder="ex : Eppendorf"
+            placeholder={t('src.manufacturer.placeholder')}
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="src-sup" className="text-xs">Fournisseur (optionnel)</Label>
+          <Label htmlFor="src-sup" className="text-xs">{t('src.supplier.optional')}</Label>
           <Input
             id="src-sup"
             value={supplier}
             onChange={(e) => setSupplier(e.target.value)}
-            placeholder="ex : distributeur local"
+            placeholder={t('src.supplier.placeholder')}
           />
         </div>
         <Button type="submit" variant="outline" size="sm" disabled={!manufacturer.trim() || createSource.isPending} className="self-end">
           {createSource.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-          Ajouter
+          {t('edit.add.source')}
         </Button>
       </form>
 
       <p className="text-xs text-muted-foreground">
-        Ces fabricants apparaissent dans le formulaire de livraison pour cet article.
+        {t('edit.sources.hint')}
       </p>
     </div>
   )

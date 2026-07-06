@@ -54,7 +54,7 @@ export function InventoryNew() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name || !category || !unit) {
-      toast.error('Nom, catégorie et unité sont requis')
+      toast.error(t('itemform.required'))
       return
     }
     try {
@@ -80,10 +80,10 @@ export function InventoryNew() {
           ),
         )
       }
-      toast.success(item ? 'Article créé' : 'Sauvegardé hors ligne')
+      toast.success(item ? t('new.created') : t('new.saved.offline'))
       navigate('/inventory')
     } catch (err) {
-      toast.error(`Erreur : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${(err as Error).message}`)
     }
   }
 
@@ -93,23 +93,23 @@ export function InventoryNew() {
     <form onSubmit={onSubmit} className="space-y-6 max-w-3xl">
       <Link to="/inventory" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Retour à l'inventaire
+        {t('inv.back')}
       </Link>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Détails de l'article</CardTitle>
+          <CardTitle className="text-base">{t('new.details')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Name field + similarity warning */}
             <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="name">Nom *</Label>
+              <Label htmlFor="name">{t('label.name')} *</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="ex: Cryotubes 2 mL"
+                placeholder={t('itemform.name.ph')}
                 required
               />
 
@@ -121,8 +121,8 @@ export function InventoryNew() {
                       <AlertTriangle className="h-4 w-4 shrink-0" />
                       <p className="text-xs font-medium">
                         {similar.length === 1
-                          ? 'Un article similaire existe déjà — vérifiez avant de créer :'
-                          : `${similar.length} articles similaires existent déjà — vérifiez avant de créer :`}
+                          ? t('new.similar.one')
+                          : `${similar.length} ${t('new.similar.many')}`}
                       </p>
                     </div>
                     <button
@@ -130,7 +130,7 @@ export function InventoryNew() {
                       onClick={() => setDismissed(true)}
                       className="text-xs text-amber-600 hover:text-amber-800 shrink-0"
                     >
-                      Ignorer
+                      {t('new.dismiss')}
                     </button>
                   </div>
                   <ul className="space-y-1">
@@ -149,30 +149,30 @@ export function InventoryNew() {
                     ))}
                   </ul>
                   <p className="text-xs text-amber-600 pl-1">
-                    Si c'est un article différent (ex: même nom, catégorie différente), ignorez cette alerte et continuez.
+                    {t('new.similar.diff')}
                   </p>
                 </div>
               )}
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="category">Catégorie *</Label>
+              <Label htmlFor="category">{t('label.category')} *</Label>
               <SelectOrNew
                 id="category"
                 value={category}
                 onChange={setCategory}
                 options={categories}
-                placeholder="Sélectionner ou ajouter…"
+                placeholder={t('itemform.select.ph')}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="unit">Unité *</Label>
+              <Label htmlFor="unit">{t('label.unit')} *</Label>
               <SelectOrNew
                 id="unit"
                 value={unit}
                 onChange={setUnit}
                 options={units}
-                placeholder="Sélectionner ou ajouter…"
+                placeholder={t('itemform.select.ph')}
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
@@ -191,7 +191,7 @@ export function InventoryNew() {
               </Select>
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="min">Seuil minimum de stock</Label>
+              <Label htmlFor="min">{t('label.min')}</Label>
               <Input
                 id="min"
                 type="number"
@@ -201,7 +201,7 @@ export function InventoryNew() {
                 onChange={(e) => setMinThreshold(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Une alerte email est envoyée quand le stock total tombe en dessous de ce seuil.
+                {t('itemform.min.hint')}
               </p>
             </div>
             <div className="space-y-1 sm:col-span-2">
@@ -213,10 +213,9 @@ export function InventoryNew() {
                   className="mt-0.5 rounded"
                 />
                 <div>
-                  <p className="text-sm font-medium">Suivi par lot (dates d'expiration)</p>
+                  <p className="text-sm font-medium">{t('itemform.tracklots')}</p>
                   <p className="text-xs text-muted-foreground">
-                    Activer pour les réactifs, milieux et diagnostiques avec date d'expiration.
-                    Chaque livraison demandera : fabricant (requis), date d'expiration (requise), numéro de lot (optionnel).
+                    {t('itemform.tracklots.hint')}
                   </p>
                 </div>
               </label>
@@ -227,7 +226,7 @@ export function InventoryNew() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Fabricants / fournisseurs</CardTitle>
+          <CardTitle className="text-base">{t('item.sources')}</CardTitle>
         </CardHeader>
         <CardContent>
           <SourceEditor sources={sources} onChange={setSources} trackLots={trackLots} />
@@ -236,27 +235,27 @@ export function InventoryNew() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Remarques</CardTitle>
+          <CardTitle className="text-base">{t('label.notes')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Observations, précisions…"
+            placeholder={t('itemform.notes.ph')}
           />
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-2">
         <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline' }))}>
-          Annuler
+          {t('action.cancel')}
         </Link>
         <Button type="submit" disabled={submitting}>
           {submitting
             ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             : <Save className="h-4 w-4 mr-1" />}
-          Enregistrer l'article
+          {t('new.save')}
         </Button>
       </div>
     </form>
