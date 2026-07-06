@@ -103,7 +103,7 @@ export function Equipment() {
         </button>
         <Link to="/equipment/retired" className={cn(buttonVariants({ variant: 'outline' }))}>
           <ArchiveX className="h-4 w-4 mr-1" />
-          Retirés
+          {t('equip.retired.link')}
         </Link>
         <Link to="/equipment/new" className={cn(buttonVariants())}>
           <Plus className="h-4 w-4 mr-1" />
@@ -132,7 +132,7 @@ export function Equipment() {
               ) : error ? (
                 <TableRow>
                   <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                    Impossible de charger les équipements — vérifier la configuration Supabase.
+                    {t('equip.error.load')}
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
@@ -145,7 +145,7 @@ export function Equipment() {
                       </p>
                       {!search && (
                         <Link to="/equipment/new" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-                          Ajouter le premier équipement
+                          {t('equip.add.first')}
                         </Link>
                       )}
                     </div>
@@ -181,10 +181,10 @@ export function Equipment() {
       </Card>
 
       <div className="text-xs text-muted-foreground flex gap-2 items-center">
-        Légende :
-        <Badge variant="destructive" className="text-xs">En retard</Badge>
-        <Badge className="text-xs bg-amber-500">Bientôt dû</Badge>
-        <Badge variant="outline" className="text-xs">OK</Badge>
+        {t('equip.legend')}
+        <Badge variant="destructive" className="text-xs">{t('equip.status.overdue')}</Badge>
+        <Badge className="text-xs bg-amber-500">{t('equip.status.due.soon')}</Badge>
+        <Badge variant="outline" className="text-xs">{t('equip.status.ok')}</Badge>
       </div>
     </div>
   )
