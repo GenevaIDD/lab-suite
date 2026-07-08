@@ -83,6 +83,18 @@ export function useLogMaintenance() {
   })
 }
 
+// Ad-hoc maintenance not tied to a schedule (schedule_id = null).
+export function useAddMaintenanceLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { equipment_id: string; performed_at: string; performed_by: string | null; notes: string | null }) =>
+      tryWriteOrQueue('insert', 'maintenance_logs', { ...payload, schedule_id: null }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['maintenance_logs', vars.equipment_id] })
+    },
+  })
+}
+
 export function useCreateItemType() {
   const qc = useQueryClient()
   return useMutation({
@@ -724,4 +736,33 @@ export async function uploadEquipmentPhoto(file: File): Promise<string | null> {
   if (error) throw error
   const { data } = supabase.storage.from('equipment-photos').getPublicUrl(path)
   return data.publicUrl
+}
+
+// Set equipment functional status; records the change (with note) in
+// equipment_status_log and updates equipment.is_functional.
+export function useSetEquipmentFunctional() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ equipmentId, isFunctional, note, changedBy }: {
+      equipmentId: string
+      isFunctional: boolean
+      note: string | null
+      changedBy: string | null
+    }) => {
+      const { error: logErr } = await db.from('equipment_status_log').insert({
+        equipment_id: equipmentId,
+        is_functional: isFunctional,
+        note,
+        changed_by: changedBy,
+      })
+      if (logErr) throw logErr
+      const { error } = await db.from('equipment').update({ is_functional: isFunctional }).eq('id', equipmentId)
+      if (error) throw error
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['equipment'] })
+      qc.invalidateQueries({ queryKey: ['equipment', vars.equipmentId] })
+      qc.invalidateQueries({ queryKey: ['equipment_status_log', vars.equipmentId] })
+    },
+  })
 }

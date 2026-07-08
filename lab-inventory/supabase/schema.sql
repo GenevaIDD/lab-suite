@@ -57,6 +57,7 @@ create table equipment (
   cost            numeric(12, 2),
   currency        currency_code,
   notes           text,
+  is_functional   boolean not null default true,
   retired_at              date,
   retirement_reason       text,
   retirement_destination  text,
@@ -93,7 +94,8 @@ create index ms_next_due_idx  on maintenance_schedules(next_due);
 
 create table maintenance_logs (
   id            uuid primary key default uuid_generate_v4(),
-  schedule_id   uuid not null references maintenance_schedules(id) on delete cascade,
+  schedule_id   uuid references maintenance_schedules(id) on delete cascade,  -- null = ad-hoc/unscheduled
+
   equipment_id  uuid not null references equipment(id) on delete cascade,
   performed_at  date not null,
   performed_by  text,
@@ -496,6 +498,31 @@ create index ed_equipment_idx on equipment_documents(equipment_id);
 alter table equipment_documents enable row level security;
 create policy "authenticated read docs"         on equipment_documents for select using (auth.role() = 'authenticated');
 create policy "admin+lab_manager write docs"    on equipment_documents for all using (
+  exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+);
+
+-- ============================================================
+-- Equipment status log
+-- One row per functional-status change (working ⇄ not working), with a note
+-- (the issue when it breaks, the corrective action when it's fixed).
+-- ============================================================
+
+create table equipment_status_log (
+  id            uuid primary key default uuid_generate_v4(),
+  equipment_id  uuid not null references equipment(id) on delete cascade,
+  is_functional boolean not null,
+  note          text,
+  changed_by    text,
+  changed_at    timestamptz not null default now(),
+  created_at    timestamptz not null default now()
+);
+
+create index esl_equipment_idx on equipment_status_log(equipment_id);
+create index esl_changed_idx   on equipment_status_log(changed_at desc);
+
+alter table equipment_status_log enable row level security;
+create policy "authenticated read equip status" on equipment_status_log for select using (auth.role() = 'authenticated');
+create policy "write equip status" on equipment_status_log for insert with check (
   exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
 );
 

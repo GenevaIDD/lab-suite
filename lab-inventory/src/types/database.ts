@@ -33,6 +33,7 @@ export interface Equipment {
   cost: number | null
   currency: Currency | null
   notes: string | null
+  is_functional: boolean
   retired_at?: string | null
   retirement_reason?: string | null
   retirement_destination?: string | null
@@ -40,6 +41,16 @@ export interface Equipment {
   photo_urls: string[]
   created_at: string
   updated_at: string
+}
+
+export interface EquipmentStatusLog {
+  id: string
+  equipment_id: string
+  is_functional: boolean
+  note: string | null
+  changed_by: string | null
+  changed_at: string
+  created_at: string
 }
 
 export interface MaintenanceSchedule {
@@ -56,7 +67,7 @@ export interface MaintenanceSchedule {
 
 export interface MaintenanceLog {
   id: string
-  schedule_id: string
+  schedule_id: string | null
   equipment_id: string
   performed_at: string
   performed_by: string | null

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare } from 'lucide-react'
-import { useAuth, isAdmin } from '@/lib/auth'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare, Wrench, Power, Plus } from 'lucide-react'
+import { useAuth, isAdmin, canWrite, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -18,21 +18,25 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs, useEquipmentObservations } from '@/lib/queries'
+import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs, useEquipmentObservations, useEquipmentStatusLog } from '@/lib/queries'
 import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
-import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation, useDeleteEquipment } from '@/lib/mutations'
+import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation, useDeleteEquipment, useSetEquipmentFunctional, useAddMaintenanceLog } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn, todayStr } from '@/lib/utils'
-import type { MaintenanceSchedule } from '@/types/database'
+import type { MaintenanceSchedule, EquipmentStatusLog } from '@/types/database'
 
 export function EquipmentDetail() {
+  const { t } = useLang()
   const { profile } = useAuth()
   const admin = isAdmin(profile)
+  const canEditStatus = canWrite(profile)
+  const canLogMaint = canManageStock(profile)
   const { id } = useParams()
   const { data: equipment, isLoading, error } = useEquipment(id)
   const { data: schedules = [] } = useMaintenanceSchedules(id)
   const { data: logs = [] } = useMaintenanceLogs(id)
   const { data: observations = [] } = useEquipmentObservations(id)
+  const { data: statusLog = [] } = useEquipmentStatusLog(id)
 
   if (isLoading) {
     return (
@@ -63,6 +67,17 @@ export function EquipmentDetail() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-semibold">{equipment.name}</h2>
+            {equipment.is_functional ? (
+              <Badge variant="outline" className="gap-1 text-green-600 border-green-200">
+                <CheckCircle2 className="h-3 w-3" />
+                {t('equip.functional')}
+              </Badge>
+            ) : (
+              <Badge variant="destructive" className="gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {t('equip.not.functional')}
+              </Badge>
+            )}
             {equipment.retired_at && (
               <Badge variant="secondary" className="gap-1 text-muted-foreground">
                 <ArchiveX className="h-3 w-3" />
@@ -75,6 +90,9 @@ export function EquipmentDetail() {
         <div className="flex items-center gap-2 flex-wrap">
           {equipment.serial_number && (
             <Badge variant="secondary" className="gap-1">SN: {equipment.serial_number}</Badge>
+          )}
+          {canEditStatus && (
+            <FunctionalStatusDialog equipmentId={equipment.id} isFunctional={equipment.is_functional} changedBy={profile?.full_name ?? null} />
           )}
           <Link to={`/equipment/${equipment.id}/edit`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
             <Pencil className="h-3.5 w-3.5 mr-1" />
@@ -150,8 +168,9 @@ export function EquipmentDetail() {
       <ObservationsCard equipmentId={equipment.id} observations={observations} />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">Historique de maintenance</CardTitle>
+          {canLogMaint && <AddMaintenanceDialog equipmentId={equipment.id} performedBy={profile?.full_name ?? ''} />}
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
@@ -165,6 +184,8 @@ export function EquipmentDetail() {
           )}
         </CardContent>
       </Card>
+
+      {statusLog.length > 0 && <StatusHistoryCard log={statusLog} />}
     </div>
   )
 }
@@ -577,5 +598,134 @@ function MaintenanceLogRow({ log }: { log: MaintenanceLog }) {
         </div>
       )}
     </li>
+  )
+}
+
+function FunctionalStatusDialog({ equipmentId, isFunctional, changedBy }: { equipmentId: string; isFunctional: boolean; changedBy: string | null }) {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  const [note, setNote] = useState('')
+  const setStatus = useSetEquipmentFunctional()
+  const goingDown = isFunctional // currently functional → marking it not functional
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!note.trim()) { toast.error(t('equip.status.note.required')); return }
+    try {
+      await setStatus.mutateAsync({ equipmentId, isFunctional: !isFunctional, note: note.trim(), changedBy })
+      toast.success(goingDown ? t('equip.status.down.success') : t('equip.status.up.success'))
+      setOpen(false); setNote('')
+    } catch (err) {
+      toast.error(`${t('equip.status.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={
+        goingDown
+          ? <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10"><Power className="h-3.5 w-3.5 mr-1" />{t('equip.mark.down')}</Button>
+          : <Button variant="outline" size="sm" className="text-green-700 border-green-200 hover:bg-green-50"><Power className="h-3.5 w-3.5 mr-1" />{t('equip.mark.up')}</Button>
+      } />
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader><DialogTitle>{goingDown ? t('equip.status.down.title') : t('equip.status.up.title')}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-3">
+            <div className="space-y-1">
+              <Label htmlFor="status-note">{goingDown ? t('equip.status.issue') : t('equip.status.action')} *</Label>
+              <Textarea id="status-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} required />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('action.cancel')}</Button>
+            <Button type="submit" variant={goingDown ? 'destructive' : 'default'} disabled={setStatus.isPending}>
+              {setStatus.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {t('action.confirm')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function AddMaintenanceDialog({ equipmentId, performedBy }: { equipmentId: string; performedBy: string }) {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  const [performedAt, setPerformedAt] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [by, setBy] = useState(performedBy)
+  const [notes, setNotes] = useState('')
+  const add = useAddMaintenanceLog()
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!by.trim()) { toast.error(t('equip.maint.by.required')); return }
+    try {
+      await add.mutateAsync({ equipment_id: equipmentId, performed_at: performedAt, performed_by: by || null, notes: notes || null })
+      toast.success(t('equip.maint.added'))
+      setOpen(false); setNotes('')
+    } catch (err) {
+      toast.error(`${t('equip.maint.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t('equip.maint.add')}</Button>} />
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader><DialogTitle>{t('equip.maint.add.title')}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-3">
+            <div className="space-y-1">
+              <Label htmlFor="m-at">{t('equip.maint.performed.on')}</Label>
+              <Input id="m-at" type="date" max={todayStr()} value={performedAt} onChange={(e) => setPerformedAt(e.target.value)} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="m-by">{t('equip.maint.performed.by')} *</Label>
+              <Input id="m-by" value={by} onChange={(e) => setBy(e.target.value)} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="m-notes">{t('equip.maint.notes')}</Label>
+              <Textarea id="m-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('action.cancel')}</Button>
+            <Button type="submit" disabled={add.isPending}>{add.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}{t('action.save')}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function StatusHistoryCard({ log }: { log: EquipmentStatusLog[] }) {
+  const { t } = useLang()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Wrench className="h-4 w-4 text-muted-foreground" />
+          {t('equip.status.history')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3">
+          {log.map((e) => (
+            <li key={e.id} className={cn('border-l-2 pl-3 py-1', e.is_functional ? 'border-green-300' : 'border-destructive/40')}>
+              <div className="flex items-center gap-2 flex-wrap">
+                {e.is_functional
+                  ? <Badge variant="outline" className="text-xs text-green-600 border-green-200">{t('equip.functional')}</Badge>
+                  : <Badge variant="destructive" className="text-xs">{t('equip.not.functional')}</Badge>}
+                <span className="text-xs text-muted-foreground">
+                  {format(parseISO(e.changed_at), 'd MMM yyyy HH:mm')}{e.changed_by ? ` · ${e.changed_by}` : ''}
+                </span>
+              </div>
+              {e.note && <p className="text-sm mt-1 whitespace-pre-wrap">{e.note}</p>}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }

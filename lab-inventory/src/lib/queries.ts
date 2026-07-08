@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal, EquipmentStatusLog } from '@/types/database'
 
 export function useProfiles() {
   return useQuery({
@@ -210,6 +210,22 @@ export function useEquipmentObservations(equipmentId?: string, limit = 10) {
       const { data, error } = await q
       if (error) throw error
       return (data ?? []) as EquipmentObservation[]
+    },
+  })
+}
+
+export function useEquipmentStatusLog(equipmentId?: string) {
+  return useQuery({
+    queryKey: ['equipment_status_log', equipmentId],
+    enabled: !!equipmentId,
+    queryFn: async (): Promise<EquipmentStatusLog[]> => {
+      const { data, error } = await db
+        .from('equipment_status_log')
+        .select('*')
+        .eq('equipment_id', equipmentId!)
+        .order('changed_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as EquipmentStatusLog[]
     },
   })
 }

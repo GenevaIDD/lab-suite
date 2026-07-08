@@ -90,6 +90,7 @@ export function EquipmentNew() {
         cost: form.cost ? Number(form.cost) : null,
         currency: form.cost ? form.currency : null,
         notes: form.notes || null,
+        is_functional: true,
         photo_urls: form.photo_urls,
       })
 
