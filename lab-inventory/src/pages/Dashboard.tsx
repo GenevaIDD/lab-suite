@@ -61,6 +61,7 @@ export function Dashboard() {
         return { ...i, quantity: Number(row?.quantity ?? 0), last_counted_at: row?.last_counted_at ?? null }
       })
       .filter((i) => i.quantity < i.min_threshold)
+      .sort((a, b) => a.quantity - b.quantity) // out of stock (0) first
   }, [itemTypes, stockRows])
 
   const loading = loadingEquipment || loadingSchedules
@@ -133,7 +134,7 @@ export function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base">{t('dash.maintenance.alerts')}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {loading ? (
               <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : overdue.length === 0 && dueSoon.length === 0 ? (
@@ -177,7 +178,7 @@ export function Dashboard() {
               {t('dash.expiry.title')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {expiredLots.length === 0 && expiringLots.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -208,7 +209,8 @@ export function Dashboard() {
                 {t('dash.low.stock.ok')}
               </div>
             ) : (
-              lowStock.map((item) => (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+              {lowStock.map((item) => (
                 <Link
                   key={item.id}
                   to={`/inventory/items/${item.id}`}
@@ -225,9 +227,14 @@ export function Dashboard() {
                       )}
                     </p>
                   </div>
-                  <Badge variant="destructive" className="text-xs shrink-0">{t('inv.status.low')}</Badge>
+                  {item.quantity <= 0 ? (
+                    <Badge variant="destructive" className="text-xs shrink-0">{t('dash.out.of.stock')}</Badge>
+                  ) : (
+                    <Badge className="text-xs shrink-0 bg-amber-500 hover:bg-amber-500/90">{t('inv.status.low')}</Badge>
+                  )}
                 </Link>
-              ))
+              ))}
+              </div>
             )}
             {lowStock.length > 0 && (
               <Link to="/inventory" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'w-full mt-2')}>
@@ -248,7 +255,7 @@ export function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
+            <ul className="space-y-2 max-h-80 overflow-y-auto">
               {recentObs.map((obs) => (
                 <li key={obs.id}>
                   <Link
@@ -280,7 +287,7 @@ export function Dashboard() {
           ) : coverage.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('dash.coverage.empty')}</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
               {coverage.map(row => {
                 const pct = row.total ? Math.round((row.counted / row.total) * 100) : 0
                 const daysAgo = row.lastDate
