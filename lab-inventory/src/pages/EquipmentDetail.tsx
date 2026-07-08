@@ -67,7 +67,7 @@ export function EquipmentDetail() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-semibold">{equipment.name}</h2>
-            {equipment.is_functional ? (
+            {equipment.is_functional !== false ? (
               <Badge variant="outline" className="gap-1 text-green-600 border-green-200">
                 <CheckCircle2 className="h-3 w-3" />
                 {t('equip.functional')}

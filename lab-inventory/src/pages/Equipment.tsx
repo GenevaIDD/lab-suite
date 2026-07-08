@@ -164,7 +164,7 @@ export function Equipment() {
                           <Link to={`/equipment/${e.id}`} className="font-medium hover:underline">
                             {e.name}
                           </Link>
-                          {!e.is_functional && (
+                          {e.is_functional === false && (
                             <Badge variant="destructive" className="text-xs gap-1">
                               <AlertTriangle className="h-3 w-3" />
                               {t('equip.not.functional')}
