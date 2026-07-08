@@ -127,6 +127,7 @@ export interface Disposal {
   disposed_at: string
   disposed_by: string | null
   created_at: string
+  lot?: { manufacturer: string; expiry_date: string; lot_number: string | null } | null
 }
 
 export interface StockCount {

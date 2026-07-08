@@ -130,7 +130,7 @@ export function useItemDisposals(itemTypeId: string | undefined) {
     queryFn: async (): Promise<Disposal[]> => {
       const { data, error } = await db
         .from('disposals')
-        .select('*')
+        .select('*, lot:lots(manufacturer, expiry_date, lot_number)')
         .eq('item_type_id', itemTypeId!)
         .order('disposed_at', { ascending: true })
       if (error) throw error

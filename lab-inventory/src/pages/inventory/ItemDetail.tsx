@@ -165,6 +165,46 @@ export function ItemDetail() {
         </Card>
       )}
 
+      {/* Disposals history — lots destroyed/discarded */}
+      {disposals.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+              {t('item.disposals.title')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('label.date')}</TableHead>
+                  <TableHead>{t('item.disposals.lot')}</TableHead>
+                  <TableHead className="text-right">{t('label.quantity')}</TableHead>
+                  <TableHead>{t('disposal.reason')}</TableHead>
+                  <TableHead>{t('item.disposals.by')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[...disposals].reverse().map(d => (
+                  <TableRow key={d.id}>
+                    <TableCell>{fmt(d.disposed_at)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {d.lot
+                        ? `${d.lot.manufacturer} · ${t('quickcount.lot.exp')} ${format(parseISO(d.lot.expiry_date), 'MMM yyyy')}${d.lot.lot_number ? ` · ${d.lot.lot_number}` : ''}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">{d.quantity} {item.unit}</TableCell>
+                    <TableCell>{d.reason ? t(`disposal.reason.${d.reason}` as never) : '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{d.disposed_by ?? '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stock chart */}
       <Card>
         <CardHeader><CardTitle className="text-base">{t('item.stock.chart')}</CardTitle></CardHeader>
