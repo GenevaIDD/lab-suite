@@ -160,9 +160,17 @@ export function Equipment() {
                   return (
                     <TableRow key={e.id} className="cursor-pointer hover:bg-muted/40">
                       <TableCell>
-                        <Link to={`/equipment/${e.id}`} className="font-medium hover:underline">
-                          {e.name}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link to={`/equipment/${e.id}`} className="font-medium hover:underline">
+                            {e.name}
+                          </Link>
+                          {!e.is_functional && (
+                            <Badge variant="destructive" className="text-xs gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {t('equip.not.functional')}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{e.category}</TableCell>
                       <TableCell className="text-muted-foreground">
