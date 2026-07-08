@@ -24,6 +24,8 @@ export interface Equipment {
   id: string
   name: string
   category: string
+  manufacturer: string | null
+  model: string | null
   serial_number: string | null
   supplier: string | null
   vendor_contact: string | null

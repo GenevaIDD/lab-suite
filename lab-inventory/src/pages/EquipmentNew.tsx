@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils'
 interface FormState {
   name: string
   category: string
+  manufacturer: string
+  model: string
   serial_number: string
   supplier: string
   vendor_contact: string
@@ -42,6 +44,8 @@ interface FormState {
 const initialForm: FormState = {
   name: '',
   category: '',
+  manufacturer: '',
+  model: '',
   serial_number: '',
   supplier: '',
   vendor_contact: '',
@@ -81,6 +85,8 @@ export function EquipmentNew() {
       const equipment = await createEquipment.mutateAsync({
         name: form.name,
         category: form.category,
+        manufacturer: form.manufacturer || null,
+        model: form.model || null,
         serial_number: form.serial_number || null,
         supplier: form.supplier || null,
         vendor_contact: form.vendor_contact || null,
@@ -146,6 +152,8 @@ export function EquipmentNew() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="name" label="Name *" value={form.name} onChange={(v) => update('name', v)} placeholder="e.g. Eppendorf Centrifuge 5810" required />
             <Field id="category" label="Category *" value={form.category} onChange={(v) => update('category', v)} placeholder="e.g. Centrifuge" required />
+            <Field id="manufacturer" label="Fabricant" value={form.manufacturer} onChange={(v) => update('manufacturer', v)} placeholder="ex : Eppendorf" />
+            <Field id="model" label="Modèle" value={form.model} onChange={(v) => update('model', v)} placeholder="ex : 5810 R" />
             <Field id="serial" label="Serial number" value={form.serial_number} onChange={(v) => update('serial_number', v)} />
           </div>
         </CardContent>

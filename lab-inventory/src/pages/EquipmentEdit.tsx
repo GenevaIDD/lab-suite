@@ -28,6 +28,8 @@ export function EquipmentEdit() {
 
   const [name, setName]                     = useState('')
   const [category, setCategory]             = useState('')
+  const [manufacturer, setManufacturer]     = useState('')
+  const [model, setModel]                   = useState('')
   const [serialNumber, setSerialNumber]     = useState('')
   const [supplier, setSupplier]             = useState('')
   const [vendorContact, setVendorContact]   = useState('')
@@ -43,6 +45,8 @@ export function EquipmentEdit() {
     if (!equipment) return
     setName(equipment.name)
     setCategory(equipment.category)
+    setManufacturer(equipment.manufacturer ?? '')
+    setModel(equipment.model ?? '')
     setSerialNumber(equipment.serial_number ?? '')
     setSupplier(equipment.supplier ?? '')
     setVendorContact(equipment.vendor_contact ?? '')
@@ -66,6 +70,8 @@ export function EquipmentEdit() {
         id,
         name,
         category,
+        manufacturer: manufacturer || null,
+        model: model || null,
         serial_number: serialNumber || null,
         supplier: supplier || null,
         vendor_contact: vendorContact || null,
@@ -115,6 +121,8 @@ export function EquipmentEdit() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="name" label="Nom *" value={name} onChange={setName} required />
             <Field id="category" label="Catégorie *" value={category} onChange={setCategory} required />
+            <Field id="manufacturer" label="Fabricant" value={manufacturer} onChange={setManufacturer} placeholder="ex : Eppendorf" />
+            <Field id="model" label="Modèle" value={model} onChange={setModel} placeholder="ex : 5810 R" />
             <Field id="serial" label="Numéro de série" value={serialNumber} onChange={setSerialNumber} />
           </div>
         </CardContent>

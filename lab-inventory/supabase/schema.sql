@@ -48,6 +48,8 @@ create table equipment (
   id              uuid primary key default uuid_generate_v4(),
   name            text not null,
   category        text not null,
+  manufacturer    text,
+  model           text,
   serial_number   text,
   supplier        text,
   vendor_contact  text,

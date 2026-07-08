@@ -130,6 +130,8 @@ export function EquipmentDetail() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <InfoBlock icon={Wrench} label="Fabricant" value={equipment.manufacturer} />
+        <InfoBlock icon={Wrench} label="Modèle" value={equipment.model} />
         <InfoBlock icon={Package} label="Supplier" value={equipment.supplier} />
         <InfoBlock icon={Calendar} label="Date d'achat" value={equipment.purchase_date ? format(parseISO(equipment.purchase_date), 'd MMM yyyy') : null} />
         <InfoBlock icon={Calendar} label="Date d'installation" value={equipment.installed_at ? format(parseISO(equipment.installed_at), 'd MMM yyyy') : null} />
