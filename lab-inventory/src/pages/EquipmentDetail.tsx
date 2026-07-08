@@ -76,6 +76,9 @@ export function EquipmentDetail() {
               <Badge variant="destructive" className="gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 {t('equip.not.functional')}
+                {statusLog[0] && !statusLog[0].is_functional && (
+                  <span className="font-normal opacity-90"> · {t('equip.status.since')} {format(parseISO(statusLog[0].changed_at), 'd MMM yyyy')}</span>
+                )}
               </Badge>
             )}
             {equipment.retired_at && (
@@ -605,6 +608,7 @@ function FunctionalStatusDialog({ equipmentId, isFunctional, changedBy }: { equi
   const { t } = useLang()
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState('')
+  const [changedOn, setChangedOn] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const setStatus = useSetEquipmentFunctional()
   const goingDown = isFunctional // currently functional → marking it not functional
 
@@ -612,7 +616,13 @@ function FunctionalStatusDialog({ equipmentId, isFunctional, changedBy }: { equi
     e.preventDefault()
     if (!note.trim()) { toast.error(t('equip.status.note.required')); return }
     try {
-      await setStatus.mutateAsync({ equipmentId, isFunctional: !isFunctional, note: note.trim(), changedBy })
+      await setStatus.mutateAsync({
+        equipmentId,
+        isFunctional: !isFunctional,
+        note: note.trim(),
+        changedBy,
+        changedAt: new Date(changedOn).toISOString(),
+      })
       toast.success(goingDown ? t('equip.status.down.success') : t('equip.status.up.success'))
       setOpen(false); setNote('')
     } catch (err) {
@@ -631,6 +641,10 @@ function FunctionalStatusDialog({ equipmentId, isFunctional, changedBy }: { equi
         <form onSubmit={submit}>
           <DialogHeader><DialogTitle>{goingDown ? t('equip.status.down.title') : t('equip.status.up.title')}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-3">
+            <div className="space-y-1">
+              <Label htmlFor="status-date">{goingDown ? t('equip.status.date.down') : t('equip.status.date.up')}</Label>
+              <Input id="status-date" type="date" max={todayStr()} value={changedOn} onChange={(e) => setChangedOn(e.target.value)} required />
+            </div>
             <div className="space-y-1">
               <Label htmlFor="status-note">{goingDown ? t('equip.status.issue') : t('equip.status.action')} *</Label>
               <Textarea id="status-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} required />
@@ -718,7 +732,7 @@ function StatusHistoryCard({ log }: { log: EquipmentStatusLog[] }) {
                   ? <Badge variant="outline" className="text-xs text-green-600 border-green-200">{t('equip.functional')}</Badge>
                   : <Badge variant="destructive" className="text-xs">{t('equip.not.functional')}</Badge>}
                 <span className="text-xs text-muted-foreground">
-                  {format(parseISO(e.changed_at), 'd MMM yyyy HH:mm')}{e.changed_by ? ` · ${e.changed_by}` : ''}
+                  {format(parseISO(e.changed_at), 'd MMM yyyy')}{e.changed_by ? ` · ${e.changed_by}` : ''}
                 </span>
               </div>
               {e.note && <p className="text-sm mt-1 whitespace-pre-wrap">{e.note}</p>}

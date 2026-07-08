@@ -743,17 +743,19 @@ export async function uploadEquipmentPhoto(file: File): Promise<string | null> {
 export function useSetEquipmentFunctional() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ equipmentId, isFunctional, note, changedBy }: {
+    mutationFn: async ({ equipmentId, isFunctional, note, changedBy, changedAt }: {
       equipmentId: string
       isFunctional: boolean
       note: string | null
       changedBy: string | null
+      changedAt: string  // ISO timestamp of when the change actually happened
     }) => {
       const { error: logErr } = await db.from('equipment_status_log').insert({
         equipment_id: equipmentId,
         is_functional: isFunctional,
         note,
         changed_by: changedBy,
+        changed_at: changedAt,
       })
       if (logErr) throw logErr
       const { error } = await db.from('equipment').update({ is_functional: isFunctional }).eq('id', equipmentId)
