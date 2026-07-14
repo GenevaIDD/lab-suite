@@ -168,6 +168,35 @@ export function useDeleteObservation() {
   })
 }
 
+export function useLinkAccessory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { host_id: string; accessory_id: string; created_by: string | null }) => {
+      const { data, error } = await supabase.from('equipment_accessories' as never).insert(payload as never).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['equipment_accessories', 'host', vars.host_id] })
+      qc.invalidateQueries({ queryKey: ['equipment_accessories', 'accessory', vars.accessory_id] })
+    },
+  })
+}
+
+export function useUnlinkAccessory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; host_id: string; accessory_id: string }) => {
+      const { error } = await supabase.from('equipment_accessories' as never).delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['equipment_accessories', 'host', vars.host_id] })
+      qc.invalidateQueries({ queryKey: ['equipment_accessories', 'accessory', vars.accessory_id] })
+    },
+  })
+}
+
 export function useUpdateMaintenanceLog() {
   const qc = useQueryClient()
   return useMutation({

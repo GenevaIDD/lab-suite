@@ -55,6 +55,16 @@ export interface EquipmentStatusLog {
   created_at: string
 }
 
+export interface EquipmentAccessory {
+  id: string
+  host_id: string
+  accessory_id: string
+  created_at: string
+  created_by: string | null
+  accessory?: Pick<Equipment, 'id' | 'name' | 'category' | 'is_functional'>
+  host?: Pick<Equipment, 'id' | 'name' | 'category' | 'is_functional'>
+}
+
 export interface MaintenanceSchedule {
   id: string
   equipment_id: string

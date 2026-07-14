@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal, EquipmentStatusLog } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal, EquipmentStatusLog, EquipmentAccessory } from '@/types/database'
 
 export function useProfiles() {
   return useQuery({
@@ -226,6 +226,38 @@ export function useEquipmentStatusLog(equipmentId?: string) {
         .order('changed_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as EquipmentStatusLog[]
+    },
+  })
+}
+
+export function useEquipmentAccessories(hostId: string | undefined) {
+  return useQuery({
+    queryKey: ['equipment_accessories', 'host', hostId],
+    enabled: !!hostId,
+    queryFn: async (): Promise<EquipmentAccessory[]> => {
+      const { data, error } = await db
+        .from('equipment_accessories')
+        .select('*, accessory:equipment!equipment_accessories_accessory_id_fkey(id, name, category, is_functional)')
+        .eq('host_id', hostId!)
+        .order('created_at')
+      if (error) throw error
+      return (data ?? []) as EquipmentAccessory[]
+    },
+  })
+}
+
+export function useEquipmentHosts(accessoryId: string | undefined) {
+  return useQuery({
+    queryKey: ['equipment_accessories', 'accessory', accessoryId],
+    enabled: !!accessoryId,
+    queryFn: async (): Promise<EquipmentAccessory[]> => {
+      const { data, error } = await db
+        .from('equipment_accessories')
+        .select('*, host:equipment!equipment_accessories_host_id_fkey(id, name, category, is_functional)')
+        .eq('accessory_id', accessoryId!)
+        .order('created_at')
+      if (error) throw error
+      return (data ?? []) as EquipmentAccessory[]
     },
   })
 }

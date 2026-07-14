@@ -529,6 +529,36 @@ create policy "write equip status" on equipment_status_log for insert with check
 );
 
 -- ============================================================
+-- Equipment accessories
+-- Many-to-many link: a host machine can have several accessories,
+-- and an accessory can be shared across multiple hosts (e.g. one
+-- rotor used on two centrifuges). Directional: host -> accessory.
+-- Deleting either equipment cascades only the link rows, never the
+-- other piece of equipment.
+-- ============================================================
+
+create table equipment_accessories (
+  id           uuid primary key default uuid_generate_v4(),
+  host_id      uuid not null references equipment(id) on delete cascade,
+  accessory_id uuid not null references equipment(id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  created_by   text,
+  unique (host_id, accessory_id),
+  check (host_id <> accessory_id)
+);
+
+create index ea_host_idx      on equipment_accessories(host_id);
+create index ea_accessory_idx on equipment_accessories(accessory_id);
+
+alter table equipment_accessories enable row level security;
+create policy "authenticated read equip accessories" on equipment_accessories for select using (auth.role() = 'authenticated');
+create policy "write equip accessories" on equipment_accessories for all using (
+  exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+) with check (
+  exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+);
+
+-- ============================================================
 -- Disposals
 -- Records lot stock destroyed/discarded (expired, damaged, etc.).
 -- Kept separate from consumption so burn-rate excludes disposed quantity.

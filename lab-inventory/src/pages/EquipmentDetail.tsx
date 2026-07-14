@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare, Wrench, Power, Plus, Hash, Phone } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare, Wrench, Power, Plus, Hash, Phone, Link2, X } from 'lucide-react'
 import { useAuth, isAdmin, canWrite, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 import { format, differenceInDays, parseISO } from 'date-fns'
@@ -18,12 +18,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useEquipment, useMaintenanceSchedules, useMaintenanceLogs, useEquipmentObservations, useEquipmentStatusLog } from '@/lib/queries'
+import { EquipmentCombobox } from '@/components/ui/EquipmentCombobox'
+import { useEquipment, useEquipmentList, useMaintenanceSchedules, useMaintenanceLogs, useEquipmentObservations, useEquipmentStatusLog, useEquipmentAccessories, useEquipmentHosts } from '@/lib/queries'
 import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
-import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation, useDeleteEquipment, useSetEquipmentFunctional, useAddMaintenanceLog } from '@/lib/mutations'
+import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation, useDeleteEquipment, useSetEquipmentFunctional, useAddMaintenanceLog, useLinkAccessory, useUnlinkAccessory } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn, todayStr } from '@/lib/utils'
-import type { MaintenanceSchedule, EquipmentStatusLog } from '@/types/database'
+import type { MaintenanceSchedule, EquipmentStatusLog, EquipmentAccessory } from '@/types/database'
 
 export function EquipmentDetail() {
   const { t } = useLang()
@@ -37,6 +38,8 @@ export function EquipmentDetail() {
   const { data: logs = [] } = useMaintenanceLogs(id)
   const { data: observations = [] } = useEquipmentObservations(id)
   const { data: statusLog = [] } = useEquipmentStatusLog(id)
+  const { data: accessories = [] } = useEquipmentAccessories(id)
+  const { data: usedBy = [] } = useEquipmentHosts(id)
 
   if (isLoading) {
     return (
@@ -190,6 +193,9 @@ export function EquipmentDetail() {
       </Card>
 
       {statusLog.length > 0 && <StatusHistoryCard log={statusLog} />}
+
+      <AccessoriesCard equipmentId={equipment.id} accessories={accessories} canEdit={canEditStatus} createdBy={profile?.full_name ?? null} />
+      <UsedByCard equipmentId={equipment.id} hosts={usedBy} canEdit={canEditStatus} createdBy={profile?.full_name ?? null} />
     </div>
   )
 }
@@ -740,6 +746,225 @@ function StatusHistoryCard({ log }: { log: EquipmentStatusLog[] }) {
             </li>
           ))}
         </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+function EquipmentLinkRow({ other, onUnlink, unlinking }: { other: { id: string; name: string; category: string; is_functional: boolean } | undefined; onUnlink: () => void; unlinking: boolean }) {
+  const { t } = useLang()
+  if (!other) return null
+  return (
+    <li className="flex items-center justify-between gap-2 border rounded-md px-3 py-2">
+      <div className="min-w-0">
+        <Link to={`/equipment/${other.id}`} className="text-sm font-medium hover:underline">
+          {other.name}
+        </Link>
+        <p className="text-xs text-muted-foreground">{other.category}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {other.is_functional === false ? (
+          <Badge variant="destructive" className="gap-1 text-xs">
+            <AlertTriangle className="h-3 w-3" />
+            {t('equip.not.functional')}
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-xs text-green-600 border-green-200">
+            {t('equip.functional')}
+          </Badge>
+        )}
+        <button
+          type="button"
+          onClick={onUnlink}
+          disabled={unlinking}
+          className="p-1 rounded hover:bg-muted text-destructive transition-opacity shrink-0"
+        >
+          {unlinking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </li>
+  )
+}
+
+function AccessoriesCard({
+  equipmentId,
+  accessories,
+  canEdit,
+  createdBy,
+}: {
+  equipmentId: string
+  accessories: EquipmentAccessory[]
+  canEdit: boolean
+  createdBy: string | null
+}) {
+  const { t } = useLang()
+  const { data: allEquipment = [] } = useEquipmentList()
+  const link = useLinkAccessory()
+  const unlink = useUnlinkAccessory()
+  const [open, setOpen] = useState(false)
+  const [pickedId, setPickedId] = useState<string | null>(null)
+
+  const excludeIds = [equipmentId, ...accessories.map((a) => a.accessory_id)]
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!pickedId) return
+    try {
+      await link.mutateAsync({ host_id: equipmentId, accessory_id: pickedId, created_by: createdBy })
+      toast.success(t('equip.acc.linked'))
+      setOpen(false)
+      setPickedId(null)
+    } catch (err) {
+      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  async function handleUnlink(a: EquipmentAccessory) {
+    if (!confirm(t('equip.acc.unlink.confirm'))) return
+    try {
+      await unlink.mutateAsync({ id: a.id, host_id: a.host_id, accessory_id: a.accessory_id })
+      toast.success(t('equip.acc.unlinked'))
+    } catch (err) {
+      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-muted-foreground" />
+          {t('equip.acc.title')}
+        </CardTitle>
+        {canEdit && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger render={<Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t('equip.acc.add')}</Button>} />
+            <DialogContent>
+              <form onSubmit={submit}>
+                <DialogHeader><DialogTitle>{t('equip.acc.add.title')}</DialogTitle></DialogHeader>
+                <div className="space-y-3 py-3">
+                  <EquipmentCombobox
+                    items={allEquipment}
+                    excludeIds={excludeIds}
+                    value={pickedId}
+                    onChange={setPickedId}
+                    placeholder={t('equip.acc.select.ph')}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('action.cancel')}</Button>
+                  <Button type="submit" disabled={!pickedId || link.isPending}>
+                    {link.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                    {t('action.save')}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent>
+        {accessories.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('equip.acc.empty')}</p>
+        ) : (
+          <ul className="space-y-2">
+            {accessories.map((a) => (
+              <EquipmentLinkRow key={a.id} other={a.accessory} onUnlink={() => handleUnlink(a)} unlinking={unlink.isPending} />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function UsedByCard({
+  equipmentId,
+  hosts,
+  canEdit,
+  createdBy,
+}: {
+  equipmentId: string
+  hosts: EquipmentAccessory[]
+  canEdit: boolean
+  createdBy: string | null
+}) {
+  const { t } = useLang()
+  const { data: allEquipment = [] } = useEquipmentList()
+  const link = useLinkAccessory()
+  const unlink = useUnlinkAccessory()
+  const [open, setOpen] = useState(false)
+  const [pickedId, setPickedId] = useState<string | null>(null)
+
+  const excludeIds = [equipmentId, ...hosts.map((h) => h.host_id)]
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!pickedId) return
+    try {
+      await link.mutateAsync({ host_id: pickedId, accessory_id: equipmentId, created_by: createdBy })
+      toast.success(t('equip.acc.linked'))
+      setOpen(false)
+      setPickedId(null)
+    } catch (err) {
+      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  async function handleUnlink(h: EquipmentAccessory) {
+    if (!confirm(t('equip.acc.unlink.confirm'))) return
+    try {
+      await unlink.mutateAsync({ id: h.id, host_id: h.host_id, accessory_id: h.accessory_id })
+      toast.success(t('equip.acc.unlinked'))
+    } catch (err) {
+      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-muted-foreground" />
+          {t('equip.used.title')}
+        </CardTitle>
+        {canEdit && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger render={<Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t('equip.used.add')}</Button>} />
+            <DialogContent>
+              <form onSubmit={submit}>
+                <DialogHeader><DialogTitle>{t('equip.used.add.title')}</DialogTitle></DialogHeader>
+                <div className="space-y-3 py-3">
+                  <EquipmentCombobox
+                    items={allEquipment}
+                    excludeIds={excludeIds}
+                    value={pickedId}
+                    onChange={setPickedId}
+                    placeholder={t('equip.acc.select.ph')}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('action.cancel')}</Button>
+                  <Button type="submit" disabled={!pickedId || link.isPending}>
+                    {link.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                    {t('action.save')}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent>
+        {hosts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('equip.used.empty')}</p>
+        ) : (
+          <ul className="space-y-2">
+            {hosts.map((h) => (
+              <EquipmentLinkRow key={h.id} other={h.host} onUnlink={() => handleUnlink(h)} unlinking={unlink.isPending} />
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   )
