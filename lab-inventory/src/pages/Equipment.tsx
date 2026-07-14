@@ -43,7 +43,12 @@ export function Equipment() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return equipment.filter(
-      (e) => !q || e.name.toLowerCase().includes(q) || e.category.toLowerCase().includes(q),
+      (e) =>
+        !q ||
+        e.name.toLowerCase().includes(q) ||
+        e.category.toLowerCase().includes(q) ||
+        (e.manufacturer?.toLowerCase().includes(q) ?? false) ||
+        (e.model?.toLowerCase().includes(q) ?? false),
     )
   }, [equipment, search])
 
@@ -118,6 +123,8 @@ export function Equipment() {
               <TableRow>
                 <TableHead>{t('equip.col.name')}</TableHead>
                 <TableHead>{t('equip.col.category')}</TableHead>
+                <TableHead>{t('equip.col.manufacturer')}</TableHead>
+                <TableHead>{t('equip.col.model')}</TableHead>
                 <TableHead>{t('equip.col.next.maint')}</TableHead>
                 <TableHead>{t('equip.col.status')}</TableHead>
               </TableRow>
@@ -125,19 +132,19 @@ export function Equipment() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin inline" />
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                     {t('equip.error.load')}
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4}>
+                  <TableCell colSpan={6}>
                     <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                       <Wrench className="h-8 w-8 opacity-30" />
                       <p className="text-sm">
@@ -173,6 +180,8 @@ export function Equipment() {
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{e.category}</TableCell>
+                      <TableCell className="text-muted-foreground">{e.manufacturer || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{e.model || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {next ? `${next.s.label} · ${format(parseISO(next.s.next_due), 'd MMM yyyy')}` : '—'}
                       </TableCell>
