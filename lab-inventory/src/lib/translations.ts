@@ -288,6 +288,7 @@ export const translations = {
     // Functional status + ad-hoc maintenance
     'equip.functional':       'Fonctionnel',
     'equip.not.functional':   'Hors service',
+    'equip.filter.all':       'Tous',
     'equip.mark.down':        'Marquer hors service',
     'equip.mark.up':          'Marquer fonctionnel',
     'equip.status.down.title':'Marquer comme hors service',
@@ -851,6 +852,7 @@ export const translations = {
     // Functional status + ad-hoc maintenance
     'equip.functional':       'Functional',
     'equip.not.functional':   'Not functional',
+    'equip.filter.all':       'All',
     'equip.mark.down':        'Mark not functional',
     'equip.mark.up':          'Mark functional',
     'equip.status.down.title':'Mark as not functional',

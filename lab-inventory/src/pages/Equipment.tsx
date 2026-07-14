@@ -22,8 +22,11 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { MaintenanceSchedule } from '@/types/database'
 
+type StatusFilter = 'all' | 'functional' | 'not_functional'
+
 export function Equipment() {
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const { t } = useLang()
   const { profile } = useAuth()
   const admin = isAdmin(profile)
@@ -40,17 +43,26 @@ export function Equipment() {
     return map
   }, [schedules])
 
+  const counts = useMemo(() => {
+    let notFunctional = 0
+    for (const e of equipment) if (e.is_functional === false) notFunctional++
+    return { all: equipment.length, notFunctional, functional: equipment.length - notFunctional }
+  }, [equipment])
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return equipment.filter(
-      (e) =>
+    return equipment.filter((e) => {
+      if (statusFilter === 'not_functional' && e.is_functional !== false) return false
+      if (statusFilter === 'functional' && e.is_functional === false) return false
+      return (
         !q ||
         e.name.toLowerCase().includes(q) ||
         e.category.toLowerCase().includes(q) ||
         (e.manufacturer?.toLowerCase().includes(q) ?? false) ||
-        (e.model?.toLowerCase().includes(q) ?? false),
-    )
-  }, [equipment, search])
+        (e.model?.toLowerCase().includes(q) ?? false)
+      )
+    })
+  }, [equipment, search, statusFilter])
 
   async function exportEquipment() {
     try {
@@ -114,6 +126,33 @@ export function Equipment() {
           <Plus className="h-4 w-4 mr-1" />
           {t('equip.add')}
         </Link>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {([
+          ['all', t('equip.filter.all'), counts.all],
+          ['functional', t('equip.functional'), counts.functional],
+          ['not_functional', t('equip.not.functional'), counts.notFunctional],
+        ] as [StatusFilter, string, number][]).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setStatusFilter(key)}
+            className={cn(
+              buttonVariants({ variant: statusFilter === key ? 'default' : 'outline', size: 'sm' }),
+              'gap-1.5',
+            )}
+          >
+            {key === 'not_functional' && <AlertTriangle className="h-3.5 w-3.5" />}
+            {label}
+            <Badge
+              variant={statusFilter === key ? 'secondary' : 'outline'}
+              className="text-xs px-1.5"
+            >
+              {count}
+            </Badge>
+          </button>
+        ))}
       </div>
 
       <Card>
