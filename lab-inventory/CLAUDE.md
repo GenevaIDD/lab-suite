@@ -19,6 +19,19 @@ Supabase (Postgres + Auth + Storage), Vercel hosting, PWA offline support.
 - `SelectTrigger` defaults to `w-fit` — always add `className="w-full"` when used in a form field
 - Dialog triggers use `render={<Button>...</Button>}` pattern (Base UI)
 
+## Fields must round-trip — MANDATORY RULE
+**Any field captured in a create/edit form must also be displayed on that
+record's profile page.** A field that users can enter but never see again is a
+bug. When adding a field to items or equipment (or any record), update *all
+three* surfaces in the same change:
+1. Type + DB column (`src/types/database.ts`, `supabase/*.sql`, `schema.sql`)
+2. The create **and** edit forms (`*New.tsx`, `*Edit.tsx`)
+3. The profile / detail page (`*Detail.tsx`) — the field must render there
+
+Equipment profile = `EquipmentDetail.tsx` (info grid); item profile =
+`inventory/ItemDetail.tsx`. Consider the export (`src/lib/export.ts`) too if the
+field belongs in reports.
+
 ## Data patterns
 - `tryWriteOrQueue` for all writes — handles offline queuing automatically
 - Lot-tracked items (`track_lots = true`): stock comes from `lots.quantity_remaining`, not `stock_counts`

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare, Wrench, Power, Plus } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, AlertTriangle, Package, Banknote, Loader2, ArchiveX, RotateCcw, Pencil, Trash2, MessageSquare, Wrench, Power, Plus, Hash, Phone } from 'lucide-react'
 import { useAuth, isAdmin, canWrite, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 import { format, differenceInDays, parseISO } from 'date-fns'
@@ -91,9 +91,6 @@ export function EquipmentDetail() {
           <p className="text-sm text-muted-foreground mt-1">{equipment.category}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {equipment.serial_number && (
-            <Badge variant="secondary" className="gap-1">SN: {equipment.serial_number}</Badge>
-          )}
           {canEditStatus && (
             <FunctionalStatusDialog equipmentId={equipment.id} isFunctional={equipment.is_functional} changedBy={profile?.full_name ?? null} />
           )}
@@ -130,13 +127,15 @@ export function EquipmentDetail() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <InfoBlock icon={Wrench} label="Fabricant" value={equipment.manufacturer} />
-        <InfoBlock icon={Wrench} label="Modèle" value={equipment.model} />
-        <InfoBlock icon={Package} label="Supplier" value={equipment.supplier} />
-        <InfoBlock icon={Calendar} label="Date d'achat" value={equipment.purchase_date ? format(parseISO(equipment.purchase_date), 'd MMM yyyy') : null} />
-        <InfoBlock icon={Calendar} label="Date d'installation" value={equipment.installed_at ? format(parseISO(equipment.installed_at), 'd MMM yyyy') : null} />
-        <InfoBlock icon={Calendar} label="Garantie expire le" value={equipment.warranty_expiry ? format(parseISO(equipment.warranty_expiry), 'd MMM yyyy') : null} />
-        {admin && <InfoBlock icon={Banknote} label="Coût" value={equipment.cost ? `${equipment.cost.toLocaleString()} ${equipment.currency ?? ''}`.trim() : null} />}
+        <InfoBlock icon={Wrench} label={t('label.manufacturer')} value={equipment.manufacturer} />
+        <InfoBlock icon={Wrench} label={t('equip.col.model')} value={equipment.model} />
+        <InfoBlock icon={Hash} label={t('label.serial')} value={equipment.serial_number} />
+        <InfoBlock icon={Package} label={t('label.supplier')} value={equipment.supplier} />
+        <InfoBlock icon={Phone} label={t('label.vendor.contact')} value={equipment.vendor_contact} />
+        <InfoBlock icon={Calendar} label={t('label.purchase')} value={equipment.purchase_date ? format(parseISO(equipment.purchase_date), 'd MMM yyyy') : null} />
+        <InfoBlock icon={Calendar} label={t('label.installed')} value={equipment.installed_at ? format(parseISO(equipment.installed_at), 'd MMM yyyy') : null} />
+        <InfoBlock icon={Calendar} label={t('label.warranty')} value={equipment.warranty_expiry ? format(parseISO(equipment.warranty_expiry), 'd MMM yyyy') : null} />
+        {admin && <InfoBlock icon={Banknote} label={t('label.cost')} value={equipment.cost ? `${equipment.cost.toLocaleString()} ${equipment.currency ?? ''}`.trim() : null} />}
       </div>
 
       <Card>
