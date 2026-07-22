@@ -168,6 +168,33 @@ export function useDeleteObservation() {
   })
 }
 
+export function useAddItemObservation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { item_type_id: string; lot_id: string | null; note: string; created_by: string | null }) => {
+      const { data, error } = await supabase.from('item_observations' as never).insert(payload as never).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['item_observations', vars.item_type_id] })
+    },
+  })
+}
+
+export function useDeleteItemObservation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; item_type_id: string }) => {
+      const { error } = await supabase.from('item_observations' as never).delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['item_observations', vars.item_type_id] })
+    },
+  })
+}
+
 export function useLinkAccessory() {
   const qc = useQueryClient()
   return useMutation({

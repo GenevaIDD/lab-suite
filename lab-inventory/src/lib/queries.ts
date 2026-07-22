@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal, EquipmentStatusLog, EquipmentAccessory } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal, EquipmentStatusLog, EquipmentAccessory, ItemObservation } from '@/types/database'
 
 export function useProfiles() {
   return useQuery({
@@ -210,6 +210,22 @@ export function useEquipmentObservations(equipmentId?: string, limit = 10) {
       const { data, error } = await q
       if (error) throw error
       return (data ?? []) as EquipmentObservation[]
+    },
+  })
+}
+
+export function useItemObservations(itemTypeId: string | undefined) {
+  return useQuery({
+    queryKey: ['item_observations', itemTypeId],
+    enabled: !!itemTypeId,
+    queryFn: async (): Promise<ItemObservation[]> => {
+      const { data, error } = await db
+        .from('item_observations')
+        .select('*, lot:lots(manufacturer, expiry_date, lot_number)')
+        .eq('item_type_id', itemTypeId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ItemObservation[]
     },
   })
 }

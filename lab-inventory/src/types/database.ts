@@ -205,6 +205,17 @@ export interface EquipmentObservation {
   equipment?: Equipment
 }
 
+export interface ItemObservation {
+  id: string
+  item_type_id: string
+  lot_id: string | null
+  note: string
+  created_by: string | null
+  created_at: string
+  item_type?: ItemType
+  lot?: { manufacturer: string; expiry_date: string; lot_number: string | null } | null
+}
+
 export interface EquipmentDocument {
   id: string
   equipment_id: string

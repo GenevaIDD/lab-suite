@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp, FlaskConical, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Package, AlertTriangle, TrendingDown, Loader2, Edit, TrendingUp, FlaskConical, Plus, Trash2, MessageSquare } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,10 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { StockChart, BurnChart } from '@/components/ui/MiniChart'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots, useItemDisposals } from '@/lib/queries'
-import { useUpsertLot, useDiscardLot } from '@/lib/mutations'
+import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots, useItemDisposals, useItemObservations } from '@/lib/queries'
+import { useUpsertLot, useDiscardLot, useAddItemObservation, useDeleteItemObservation } from '@/lib/mutations'
 import { buildTimeline, buildBurnRate, buildAnomalies } from '@/lib/stockCalc'
 import { getExpiringLots } from '@/lib/lotCalc'
 import { useAuth, isAdmin, canManageStock } from '@/lib/auth'
@@ -21,7 +22,7 @@ import { storageLabel } from '@/lib/storage'
 import { ENABLE_MANUAL_LOT_ENTRY } from '@/lib/flags'
 import { cn, qtyStep } from '@/lib/utils'
 import { toast } from 'sonner'
-import type { InventoryLot, DisposalReason } from '@/types/database'
+import type { InventoryLot, DisposalReason, ItemObservation } from '@/types/database'
 
 function fmt(d: string) { return format(parseISO(d), 'd MMM yyyy') }
 
@@ -43,6 +44,7 @@ export function ItemDetail() {
   const { data: stockRows = [] }  = useCurrentStock() as { data: StockRow[] }
   const { data: activeLots = [] } = useItemLots(id)
   const { data: allLots = [] }    = useItemLots(id, true)  // including exhausted
+  const { data: observations = [] } = useItemObservations(id)
 
   const currentQty   = useMemo(() => stockRows.find(r => r.item_type_id === id)?.quantity ?? 0, [stockRows, id])
   const lastCounted  = useMemo(() => stockRows.find(r => r.item_type_id === id)?.last_counted_at, [stockRows, id])
@@ -204,6 +206,9 @@ export function ItemDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Notes / observations over time */}
+      <ItemObservationsCard itemTypeId={id!} observations={observations} lots={allLots} trackLots={item.track_lots} />
 
       {/* Stock chart */}
       <Card>
@@ -528,5 +533,152 @@ function DiscardLotDialog({ lot, unit, disposedBy }: { lot: InventoryLot; unit: 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+const NO_LOT = '__none__'
+
+function lotLabel(t: ReturnType<typeof useLang>['t'], lot: { manufacturer: string; expiry_date: string; lot_number: string | null }) {
+  return `${lot.manufacturer} · ${t('quickcount.lot.exp')} ${format(parseISO(lot.expiry_date), 'MMM yyyy')}${lot.lot_number ? ` · ${lot.lot_number}` : ''}`
+}
+
+function ItemObservationsCard({
+  itemTypeId,
+  observations,
+  lots,
+  trackLots,
+}: {
+  itemTypeId: string
+  observations: ItemObservation[]
+  lots: InventoryLot[]
+  trackLots: boolean
+}) {
+  const { t } = useLang()
+  const { profile } = useAuth()
+  const canDelete = profile?.role === 'admin' || profile?.role === 'lab_manager'
+  const [note, setNote] = useState('')
+  const [lotId, setLotId] = useState(NO_LOT)
+  const addObs = useAddItemObservation()
+  const deleteObs = useDeleteItemObservation()
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!note.trim()) return
+    try {
+      await addObs.mutateAsync({
+        item_type_id: itemTypeId,
+        lot_id: lotId === NO_LOT ? null : lotId,
+        note: note.trim(),
+        created_by: profile?.full_name ?? null,
+      })
+      setNote('')
+      setLotId(NO_LOT)
+      toast.success(t('item.obs.added'))
+    } catch (err) {
+      toast.error(`${t('item.obs.error')} : ${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          {t('item.obs.title')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <form onSubmit={submit} className="space-y-2">
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={t('item.obs.placeholder')}
+            rows={2}
+            className="text-sm resize-none"
+          />
+          <div className="flex gap-2 items-center justify-between">
+            {trackLots && lots.length > 0 ? (
+              <div className="flex-1 max-w-xs">
+                <Select value={lotId} onValueChange={(v) => setLotId(v ?? NO_LOT)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v) => v === NO_LOT || !v ? t('item.obs.lot.none') : lotLabel(t, lots.find(l => l.id === v)!)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_LOT}>{t('item.obs.lot.none')}</SelectItem>
+                    {lots.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>{lotLabel(t, l)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : <span />}
+            <Button type="submit" size="sm" disabled={!note.trim() || addObs.isPending}>
+              {addObs.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('action.add')}
+            </Button>
+          </div>
+        </form>
+        {observations.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('item.obs.empty')}</p>
+        ) : (
+          <ul className="space-y-2">
+            {observations.map((obs) => (
+              <ItemObservationRow
+                key={obs.id}
+                obs={obs}
+                canDelete={canDelete}
+                onDelete={async () => {
+                  if (!confirm(t('item.obs.delete.confirm'))) return
+                  try {
+                    await deleteObs.mutateAsync({ id: obs.id, item_type_id: itemTypeId })
+                  } catch (err) {
+                    toast.error(`${t('item.obs.error')} : ${(err as Error).message}`)
+                  }
+                }}
+                deleting={deleteObs.isPending}
+              />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ItemObservationRow({
+  obs,
+  canDelete,
+  onDelete,
+  deleting,
+}: {
+  obs: ItemObservation
+  canDelete: boolean
+  onDelete: () => void
+  deleting: boolean
+}) {
+  const { t } = useLang()
+  return (
+    <li className="border-l-2 border-muted pl-3 py-1 group flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        {obs.lot && (
+          <Badge variant="outline" className="text-xs mb-1">{lotLabel(t, obs.lot)}</Badge>
+        )}
+        <p className="text-sm whitespace-pre-wrap">{obs.note}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {format(parseISO(obs.created_at), 'd MMM yyyy HH:mm')}
+          {obs.created_by && ` · ${obs.created_by}`}
+        </p>
+      </div>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleting}
+          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted text-destructive transition-opacity shrink-0 mt-0.5"
+          title={t('item.obs.delete.confirm')}
+        >
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </button>
+      )}
+    </li>
   )
 }
