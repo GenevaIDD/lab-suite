@@ -2,17 +2,19 @@ import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { todayStr } from '@/lib/utils'
-import { ArrowLeft, ClipboardList, Loader2 } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Loader2, AlertTriangle } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useItemTypes, useActiveSession } from '@/lib/queries'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useItemTypes, useActiveSession, useAllSessions } from '@/lib/queries'
 import { useStartSession } from '@/lib/mutations'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
+import { useLang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 // Canonical category order matching lab's physical organisation
@@ -41,7 +43,11 @@ export function SessionStart() {
   const { profile } = useAuth()
   const { data: itemTypes = [], isLoading } = useItemTypes()
   const { data: activeSession } = useActiveSession()
+  const { data: allSessions = [] } = useAllSessions()
   const startSession = useStartSession()
+  const { t } = useLang()
+
+  const [confirmDup, setConfirmDup] = useState(false)
 
   const [targetDate, setTargetDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [notes, setNotes] = useState('')
@@ -76,6 +82,15 @@ export function SessionStart() {
     return itemTypes.filter((i) => selectedCategories.has(i.category))
   }, [itemTypes, selectedCategories, allSelected])
 
+  // A completed session for the same date means someone already counted this
+  // day. Re-counting is allowed (a genuine recount happens), but it must be a
+  // deliberate choice — silently redoing an hour of counting is the failure
+  // this guards against.
+  const duplicate = useMemo(
+    () => allSessions.find((s) => s.status === 'completed' && s.target_date === targetDate) ?? null,
+    [allSessions, targetDate],
+  )
+
   async function handleStart() {
     if (activeSession) {
       toast.error('A session is already in progress. Resume or complete it before starting a new one.')
@@ -86,6 +101,15 @@ export function SessionStart() {
       toast.error('No items in the selected categories.')
       return
     }
+    if (duplicate) {
+      setConfirmDup(true)
+      return
+    }
+    await doStart()
+  }
+
+  async function doStart() {
+    setConfirmDup(false)
     try {
       const session = await startSession.mutateAsync({
         targetDate,
@@ -193,6 +217,23 @@ export function SessionStart() {
             <p className="text-xs text-muted-foreground">
               Used for burn-rate projections and anomaly detection. Defaults to today.
             </p>
+            {duplicate && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 flex gap-2 mt-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800 space-y-0.5">
+                  <p>
+                    {t('session.dup.warn')}
+                    {duplicate.started_by ? ` — ${t('session.dup.by')} ${duplicate.started_by}` : ''}
+                  </p>
+                  <Link
+                    to={`/inventory/session/${duplicate.id}/summary`}
+                    className="font-medium underline underline-offset-2 hover:text-amber-900"
+                  >
+                    {t('session.dup.view')} →
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="notes">Notes (optional)</Label>
@@ -228,6 +269,22 @@ export function SessionStart() {
           Start counting
         </Button>
       </div>
+
+      <Dialog open={confirmDup} onOpenChange={setConfirmDup}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('session.dup.title')}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('session.dup.desc')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDup(false)}>
+              {t('session.dup.cancel')}
+            </Button>
+            <Button onClick={doStart} disabled={startSession.isPending}>
+              {startSession.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {t('session.dup.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

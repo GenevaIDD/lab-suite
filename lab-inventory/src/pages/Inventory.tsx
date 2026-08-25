@@ -324,9 +324,9 @@ export function Inventory() {
       </Card>
 
       <div className="text-xs text-muted-foreground flex gap-2 items-center">
-        Statut :
-        <Badge variant="destructive" className="text-xs">Stock faible</Badge>
-        <Badge variant="outline" className="text-xs">OK</Badge>
+        {t('inv.legend.status')}
+        <Badge variant="destructive" className="text-xs">{t('inv.status.low')}</Badge>
+        <Badge variant="outline" className="text-xs">{t('inv.status.ok')}</Badge>
       </div>
     </div>
   )
@@ -357,13 +357,14 @@ function EmptyState({ search, target }: { search: string; target: 'items' | 'del
 }
 
 function LastCountedBadge({ date }: { date?: string | null }) {
+  const { t } = useLang()
   if (!date) {
-    return <span className="text-xs font-medium text-destructive">Jamais</span>
+    return <span className="text-xs font-medium text-destructive">{t('state.never')}</span>
   }
   const days = differenceInDays(new Date(), parseISO(date))
-  const label = days === 0 ? "Aujourd'hui"
-    : days === 1 ? 'Hier'
-    : `il y a ${days}j`
+  const label = days === 0 ? t('inv.counted.today')
+    : days === 1 ? t('inv.counted.yesterday')
+    : `${t('inv.counted.ago.pre')}${days}${t('inv.counted.ago.post')}`
   const color = days <= 30 ? 'text-green-600'
     : days <= 60 ? 'text-amber-600'
     : 'text-destructive'

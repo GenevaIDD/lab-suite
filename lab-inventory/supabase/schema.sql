@@ -252,12 +252,14 @@ create index lots_expiry_idx   on lots(expiry_date) where exhausted_at is null;
 create or replace view current_stock as
 -- Non-tracked items: last count + deliveries since (original logic)
 with latest_count as (
+  -- created_at breaks the tie when the same item is counted twice for the same
+  -- date (a repeated session): the row entered last wins, deterministically.
   select distinct on (item_type_id)
     item_type_id,
     quantity   as count_qty,
     counted_at
   from stock_counts
-  order by item_type_id, counted_at desc
+  order by item_type_id, counted_at desc, created_at desc
 ),
 deliveries_since as (
   select
@@ -283,20 +285,24 @@ non_tracked as (
   left join deliveries_since ds on ds.item_type_id = it.id
   where it.track_lots = false
 ),
--- Tracked items: sum of active (non-exhausted) lot quantities
+-- Tracked items: sum of active (non-exhausted) lot quantities.
+-- last_counted_at comes from the item-level stock_counts snapshot written when
+-- a count is recorded; lots.created_at is only the fallback for lots that have
+-- never been counted (see fix_last_counted_lot_items.sql).
 tracked as (
   select
-    it.id                                   as item_type_id,
+    it.id                                                    as item_type_id,
     it.name,
     it.category,
     it.unit,
     it.min_threshold,
-    coalesce(sum(l.quantity_remaining), 0)  as quantity,
-    max(l.created_at)::timestamptz          as last_counted_at
+    coalesce(sum(l.quantity_remaining), 0)                   as quantity,
+    coalesce(lc.counted_at, max(l.created_at)::timestamptz)  as last_counted_at
   from item_types it
-  left join lots l on l.item_type_id = it.id and l.exhausted_at is null
+  left join lots l          on l.item_type_id = it.id and l.exhausted_at is null
+  left join latest_count lc on lc.item_type_id = it.id
   where it.track_lots = true
-  group by it.id, it.name, it.category, it.unit, it.min_threshold
+  group by it.id, it.name, it.category, it.unit, it.min_threshold, lc.counted_at
 )
 select * from non_tracked
 union all

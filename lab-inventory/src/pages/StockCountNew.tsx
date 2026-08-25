@@ -54,6 +54,20 @@ export function StockCountNew() {
       if (isLot) {
         if (!lotId) { toast.error(t('quickcount.lot.pick')); return }
         await updateLot.mutateAsync({ lotId, itemTypeId, countedQuantity: Number(quantity) })
+        // Snapshot the item's new total into stock_counts. current_stock reads
+        // "last counted" for lot items from stock_counts (lots carry no count
+        // date), so without this the date would stay frozen at lot creation.
+        const newTotal = lots.reduce(
+          (sum, l) => sum + (l.id === lotId ? Number(quantity) : Number(l.quantity_remaining)),
+          0,
+        )
+        await createCount.mutateAsync({
+          item_type_id: itemTypeId,
+          quantity: newTotal,
+          counted_at: new Date().toISOString(),
+          counted_by: countedBy || null,
+          notes: null,
+        })
         toast.success(t('quickcount.lot.saved'))
       } else {
         await createCount.mutateAsync({
