@@ -36,9 +36,12 @@ Verified on the test project against real data
 1 lot update and 1 snapshot; the second returned `already_completed` and
 wrote nothing; the lot moved 200 -> 7 and rolled back cleanly.
 
-Not yet proven: RLS. The test script runs as `postgres` in the SQL editor,
-which bypasses policies. Completing a session in the app as a tech-role
-user is what exercises those.
+RLS verified 2026-09-03 through the app on the test project, signed in as a
+tech-role user: the session completed, and a deliberate double-click on
+Terminer wrote exactly one stock-count row (42.00) rather than two. So the
+status guard holds through the real call path, and the tech role carries
+enough grant to write stock_counts, lots and inventory_sessions inside a
+SECURITY INVOKER function.
 
 - `record_delivery(p_request_id uuid, …) returns jsonb`
   Creates the delivery and its lot in one transaction. Idempotent on a
