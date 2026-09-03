@@ -23,6 +23,7 @@ import { useEquipment, useEquipmentList, useMaintenanceSchedules, useMaintenance
 import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
 import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation, useDeleteEquipment, useSetEquipmentFunctional, useAddMaintenanceLog, useLinkAccessory, useUnlinkAccessory } from '@/lib/mutations'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 import { cn, todayStr } from '@/lib/utils'
 import { PHOTO_BUCKET, useSignedUrls } from '@/lib/file-storage'
 import type { MaintenanceSchedule, EquipmentStatusLog, EquipmentAccessory } from '@/types/database'
@@ -428,7 +429,7 @@ function DeleteEquipmentDialog({ equipmentId, equipmentName }: { equipmentId: st
       toast.success(t('equip.delete.success'))
       navigate('/equipment')
     } catch (err) {
-      toast.error(`Erreur : ${(err as Error).message}`)
+      toast.error(`Erreur : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -647,7 +648,7 @@ function FunctionalStatusDialog({ equipmentId, isFunctional, changedBy }: { equi
       toast.success(goingDown ? t('equip.status.down.success') : t('equip.status.up.success'))
       setOpen(false); setNote('')
     } catch (err) {
-      toast.error(`${t('equip.status.error')} : ${(err as Error).message}`)
+      toast.error(`${t('equip.status.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -700,7 +701,7 @@ function AddMaintenanceDialog({ equipmentId, performedBy }: { equipmentId: strin
       toast.success(t('equip.maint.added'))
       setOpen(false); setNotes('')
     } catch (err) {
-      toast.error(`${t('equip.maint.error')} : ${(err as Error).message}`)
+      toast.error(`${t('equip.maint.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -829,7 +830,7 @@ function AccessoriesCard({
       setOpen(false)
       setPickedId(null)
     } catch (err) {
-      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+      toast.error(`${t('equip.acc.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -839,7 +840,7 @@ function AccessoriesCard({
       await unlink.mutateAsync({ id: a.id, host_id: a.host_id, accessory_id: a.accessory_id })
       toast.success(t('equip.acc.unlinked'))
     } catch (err) {
-      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+      toast.error(`${t('equip.acc.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -921,7 +922,7 @@ function UsedByCard({
       setOpen(false)
       setPickedId(null)
     } catch (err) {
-      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+      toast.error(`${t('equip.acc.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -931,7 +932,7 @@ function UsedByCard({
       await unlink.mutateAsync({ id: h.id, host_id: h.host_id, accessory_id: h.accessory_id })
       toast.success(t('equip.acc.unlinked'))
     } catch (err) {
-      toast.error(`${t('equip.acc.error')} : ${(err as Error).message}`)
+      toast.error(`${t('equip.acc.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

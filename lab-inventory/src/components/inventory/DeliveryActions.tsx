@@ -13,6 +13,7 @@ import { useDeliveryLots } from '@/lib/queries'
 import { useLang } from '@/lib/i18n'
 import { qtyStep, todayStr } from '@/lib/utils'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 import type { Delivery } from '@/types/database'
 
 export function DeliveryActions({ delivery }: { delivery: Delivery }) {
@@ -49,7 +50,7 @@ function EditDeliveryDialog({ delivery }: { delivery: Delivery }) {
       toast.success(t('deliv.updated'))
       setOpen(false)
     } catch (err) {
-      toast.error(`${t('deliv.update.error')} : ${(err as Error).message}`)
+      toast.error(`${t('deliv.update.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -114,7 +115,7 @@ function DeleteDeliveryDialog({ delivery }: { delivery: Delivery }) {
       toast.success(t('deliv.deleted'))
       setOpen(false)
     } catch (err) {
-      toast.error(`${t('deliv.delete.error')} : ${(err as Error).message}`)
+      toast.error(`${t('deliv.delete.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

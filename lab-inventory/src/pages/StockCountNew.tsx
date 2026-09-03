@@ -13,6 +13,7 @@ import { ItemCombobox } from '@/components/ui/ItemCombobox'
 import { useItemTypes, useCurrentStock, useItemLots } from '@/lib/queries'
 import { useCreateStockCount, useUpdateLotCount } from '@/lib/mutations'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 import { useAuth, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 
@@ -77,11 +78,11 @@ export function StockCountNew() {
           counted_by: countedBy || null,
           notes: notes || null,
         })
-        toast.success(navigator.onLine ? t('quickcount.saved') : t('quickcount.saved.offline'))
+        toast.success(t('quickcount.saved'))
       }
       navigate('/inventory')
     } catch (err) {
-      toast.error(`${t('quickcount.error')} : ${(err as Error).message}`)
+      toast.error(`${t('quickcount.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

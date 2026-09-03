@@ -14,6 +14,7 @@ import { useDistinctCategories, useDistinctUnits, useItemTypes } from '@/lib/que
 import { useLang } from '@/lib/i18n'
 import { STORAGE_CONDITIONS, storageLabel } from '@/lib/storage'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { findSimilar } from '@/lib/similarity'
 import type { StorageCondition } from '@/types/database'
@@ -80,10 +81,10 @@ export function InventoryNew() {
           ),
         )
       }
-      toast.success(item ? t('new.created') : t('new.saved.offline'))
+      toast.success(t('new.created'))
       navigate('/inventory')
     } catch (err) {
-      toast.error(`${t('form.error')} : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

@@ -29,6 +29,7 @@ import { useItemTypes, useItemSources } from '@/lib/queries'
 import { useCreateDelivery, useCreateItemSource, useUpsertLot } from '@/lib/mutations'
 import { useLang } from '@/lib/i18n'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 export function DeliveryNew() {
@@ -91,10 +92,10 @@ export function DeliveryNew() {
           })
         }
       }
-      toast.success(navigator.onLine ? t('delivnew.saved') : t('new.saved.offline'))
+      toast.success(t('delivnew.saved'))
       navigate('/inventory')
     } catch (err) {
-      toast.error(`${t('form.error')} : ${(err as Error).message}`)
+      toast.error(`${t('form.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -216,12 +217,12 @@ function NewSourceDialog({ itemTypeId, onCreated }: { itemTypeId: string; onCrea
         notes: null,
       })
       if (created?.id) onCreated(created.id)
-      toast.success(created ? t('delivnew.source.added') : t('new.saved.offline'))
+      toast.success(t('delivnew.source.added'))
       setOpen(false)
       setManufacturer('')
       setSupplier('')
     } catch (err) {
-      toast.error(`${t('delivnew.failed')} : ${(err as Error).message}`)
+      toast.error(`${t('delivnew.failed')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

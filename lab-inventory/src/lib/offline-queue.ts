@@ -14,6 +14,20 @@ export interface FailedWrite extends QueuedWrite {
   reason: string
 }
 
+/**
+ * Offline write queuing is DISABLED.
+ *
+ * Writes attempted while offline now fail loudly instead of being deferred.
+ * The queue machinery is kept, and any entries already sitting in a user's
+ * localStorage are still drained on reconnect -- disabling capture must not
+ * orphan work someone has already recorded.
+ *
+ * To re-enable, flip this to true. The real fix is teaching the queue to
+ * replay RPC calls as well as table writes, which is a prerequisite for the
+ * record_delivery / complete_inventory_session work. See TODO.md.
+ */
+export const OFFLINE_WRITES_ENABLED = false
+
 const QUEUE_KEY = 'lab_offline_queue'
 const FAILED_KEY = 'lab_offline_failed'
 const MAX_FAILED = 50
@@ -63,6 +77,7 @@ function recordFailure(item: QueuedWrite, reason: string): void {
 }
 
 export function enqueue(write: Omit<QueuedWrite, 'id' | 'queuedAt'>): void {
+  if (!OFFLINE_WRITES_ENABLED) return
   const queue = getQueue()
   queue.push({ ...write, id: crypto.randomUUID(), queuedAt: new Date().toISOString() })
   saveQueue(queue)

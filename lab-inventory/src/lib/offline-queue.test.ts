@@ -58,6 +58,41 @@ function makeStorage() {
   }
 }
 
+// Writes an entry straight into storage, standing in for one queued before
+// OFFLINE_WRITES_ENABLED was turned off. Those must still drain.
+function seedQueue() {
+  localStorage.setItem('lab_offline_queue', JSON.stringify([{
+    id: 'seed-1',
+    table: 'stock_counts',
+    operation: 'insert',
+    payload: { quantity: 5 },
+    queuedAt: '2026-09-03T00:00:00.000Z',
+  }]))
+}
+
+describe('offline write capture', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', makeStorage())
+    vi.resetModules()
+  })
+
+  it('is disabled, so enqueue records nothing', async () => {
+    const { enqueue, getPendingCount, OFFLINE_WRITES_ENABLED } = await import('./offline-queue')
+    expect(OFFLINE_WRITES_ENABLED).toBe(false)
+    enqueue({ table: 'stock_counts', operation: 'insert', payload: { quantity: 5 } })
+    expect(getPendingCount()).toBe(0)
+  })
+
+  it('still drains entries queued before it was disabled', async () => {
+    const { flushQueue, getPendingCount } = await import('./offline-queue')
+    seedQueue()
+    expect(getPendingCount()).toBe(1)
+    from.mockReturnValue({ insert: () => Promise.resolve({ error: null, status: 201 }) })
+    await flushQueue()
+    expect(getPendingCount()).toBe(0)
+  })
+})
+
 describe('flushQueue', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', makeStorage())
@@ -66,8 +101,8 @@ describe('flushQueue', () => {
   })
 
   it('drops a terminal failure to the dead-letter list instead of retrying it', async () => {
-    const { enqueue, flushQueue, getPendingCount, getFailedWrites } = await import('./offline-queue')
-    enqueue({ table: 'stock_counts', operation: 'insert', payload: { quantity: 5 } })
+    const { flushQueue, getPendingCount, getFailedWrites } = await import('./offline-queue')
+    seedQueue()
 
     from.mockReturnValue({
       insert: () => Promise.resolve({ error: { message: 'new row violates row-level security policy' }, status: 403 }),
@@ -82,8 +117,8 @@ describe('flushQueue', () => {
   })
 
   it('keeps a transport failure queued for a later retry', async () => {
-    const { enqueue, flushQueue, getPendingCount, getFailedWrites } = await import('./offline-queue')
-    enqueue({ table: 'stock_counts', operation: 'insert', payload: { quantity: 5 } })
+    const { flushQueue, getPendingCount, getFailedWrites } = await import('./offline-queue')
+    seedQueue()
 
     from.mockReturnValue({
       insert: () => Promise.resolve({ error: { message: 'TypeError: Failed to fetch' }, status: 0 }),
@@ -97,8 +132,8 @@ describe('flushQueue', () => {
   })
 
   it('clears an entry that replays successfully', async () => {
-    const { enqueue, flushQueue, getPendingCount } = await import('./offline-queue')
-    enqueue({ table: 'stock_counts', operation: 'insert', payload: { quantity: 5 } })
+    const { flushQueue, getPendingCount } = await import('./offline-queue')
+    seedQueue()
 
     from.mockReturnValue({ insert: () => Promise.resolve({ error: null, status: 201 }) })
 
@@ -109,8 +144,8 @@ describe('flushQueue', () => {
   })
 
   it('replays each entry once when two listeners flush concurrently', async () => {
-    const { enqueue, flushQueue, getPendingCount } = await import('./offline-queue')
-    enqueue({ table: 'stock_counts', operation: 'insert', payload: { quantity: 5 } })
+    const { flushQueue, getPendingCount } = await import('./offline-queue')
+    seedQueue()
 
     let inserts = 0
     from.mockReturnValue({

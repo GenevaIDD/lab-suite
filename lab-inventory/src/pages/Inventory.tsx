@@ -18,6 +18,7 @@ import { Plus, Search, Package, Loader2, ClipboardList, Play, ArrowUpDown, Downl
 import { downloadXlsx } from '@/lib/export'
 import { storageLabel } from '@/lib/storage'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -144,7 +145,7 @@ export function Inventory() {
 
       await downloadXlsx(`inventaire-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, sheets)
     } catch (err) {
-      toast.error(`${t('export.error')} : ${(err as Error).message}`)
+      toast.error(`${t('export.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

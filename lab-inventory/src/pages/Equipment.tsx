@@ -20,6 +20,7 @@ import { useAuth, isAdmin } from '@/lib/auth'
 import { downloadXlsx } from '@/lib/export'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 import type { MaintenanceSchedule } from '@/types/database'
 
 type StatusFilter = 'all' | 'functional' | 'not_functional'
@@ -98,7 +99,7 @@ export function Equipment() {
         { name: t('export.sheet.equipment'), columns, rows },
       ])
     } catch (err) {
-      toast.error(`${t('export.error')} : ${(err as Error).message}`)
+      toast.error(`${t('export.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

@@ -22,6 +22,7 @@ import { useLang } from '@/lib/i18n'
 import type { TranslationKey } from '@/lib/translations'
 import type { Profile, UserRole } from '@/types/database'
 import { toast } from 'sonner'
+import { writeErrorMessage } from '@/lib/errors'
 
 // Which roles hold each capability — mirrors the permission helpers in
 // src/lib/auth.ts and the RLS policies in supabase/schema.sql.
@@ -118,7 +119,7 @@ function InviteDialog() {
       setOpen(false)
       setEmail(''); setName(''); setRole('tech')
     } catch (err) {
-      toast.error(`${t('users.invite.error')} : ${(err as Error).message}`)
+      toast.error(`${t('users.invite.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -180,7 +181,7 @@ function UserRow({ user, isAdmin, isSelf }: { user: Profile; isAdmin: boolean; i
       await updateRole.mutateAsync({ id: user.id, role: role as UserRole })
       toast.success(t('users.role.updated'))
     } catch (err) {
-      toast.error(`${t('users.role.error')} : ${(err as Error).message}`)
+      toast.error(`${t('users.role.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -192,7 +193,7 @@ function UserRow({ user, isAdmin, isSelf }: { user: Profile; isAdmin: boolean; i
       toast.success(t('users.name.updated'))
       setEditingName(false)
     } catch (err) {
-      toast.error(`${t('users.name.error')} : ${(err as Error).message}`)
+      toast.error(`${t('users.name.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -203,7 +204,7 @@ function UserRow({ user, isAdmin, isSelf }: { user: Profile; isAdmin: boolean; i
       await setActive.mutateAsync({ id: user.id, is_active: next })
       toast.success(next ? t('users.reactivated.toast') : t('users.deactivated.toast'))
     } catch (err) {
-      toast.error(`${t('users.active.error')} : ${(err as Error).message}`)
+      toast.error(`${t('users.active.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 
@@ -321,7 +322,7 @@ function SetPasswordDialog({ user }: { user: Profile }) {
       setOpen(false)
       setPw('')
     } catch (err) {
-      toast.error(`${t('users.pw.error')} : ${(err as Error).message}`)
+      toast.error(`${t('users.pw.error')} : ${writeErrorMessage(err, t)}`)
     }
   }
 

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import { enqueue, isRetryableFailure } from './offline-queue'
+import { enqueue, isRetryableFailure, OFFLINE_WRITES_ENABLED } from './offline-queue'
+import { OFFLINE_WRITE_REFUSED } from './errors'
 import { DOC_BUCKET, PHOTO_BUCKET } from './file-storage'
 import { inviteUser, setUserActive, setUserPassword } from './admin-api'
 import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry, UserRole } from '@/types/database'
@@ -14,6 +15,9 @@ async function tryWriteOrQueue<T>(
   recordId?: string,
 ): Promise<T | null> {
   if (!navigator.onLine) {
+    if (!OFFLINE_WRITES_ENABLED) {
+      throw new Error(OFFLINE_WRITE_REFUSED)
+    }
     enqueue({ table, operation, payload, recordId })
     return null
   }
