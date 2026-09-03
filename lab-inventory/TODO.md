@@ -97,6 +97,55 @@ PostgREST's OpenAPI root, and both return empty rather than an error. During
 this work that made buckets and tables look absent when they existed. Verify
 schema questions in the SQL editor, not through the anon key.
 
+## 3b. Let admins correct past counts  ** NEW, requested 2026-09-03 **
+
+Staff sometimes notice a past count was entered wrong (a typo, a
+misattributed lot) and there is currently no way to fix it. This is not just
+missing UI: `stock_counts` has INSERT-only RLS policies (schema.sql:384), so
+the table is append-only by construction. Deliveries, by contrast, already
+have update and delete policies for admin + lab_manager, with UI in
+`components/inventory/DeliveryActions.tsx` -- that is the pattern to mirror.
+
+Decisions taken:
+  - Who: admin + lab_manager, matching the delivery policy.
+  - History: corrections are edits in place, but a BEFORE UPDATE trigger
+    copies the previous row into a history table with who and when. The
+    append-only property protected auditability; a trigger keeps that while
+    giving normal edit UX.
+  - Scope: all three of stock_counts, lots.quantity_remaining, and session
+    entries.
+
+### Work
+
+1. `stock_count_history` table (+ equivalents for lots and session entries,
+   or one polymorphic audit table -- decide when building). Columns: source
+   row id, every mutable field's previous value, replaced_at, replaced_by.
+2. BEFORE UPDATE and BEFORE DELETE triggers writing OLD into history.
+   Triggers rather than application code, so nothing can bypass it.
+3. RLS: add UPDATE and DELETE policies on stock_counts for admin +
+   lab_manager. lots already allows admin/lab_manager/tech writes -- tighten
+   or leave, decide when building.
+4. UI: edit affordance on the item's count history and on the lot list,
+   mirroring DeliveryActions. Show that a row was amended, with the previous
+   value visible.
+5. i18n keys for all new strings, FR and EN.
+
+### Watch out
+
+  - `current_stock` picks the latest count per item by
+    (counted_at desc, created_at desc). Editing the LATEST count changes
+    displayed stock immediately; editing an older one does not, but does
+    change burn-rate history. The UI should make clear which is happening.
+  - Lot-tracked items take stock from `lots.quantity_remaining`, not
+    stock_counts, so "correct this item's count" means different writes
+    depending on `track_lots`. Easy to get half-right.
+  - Session entries are the hard case: a completed session derived
+    stock_counts rows from its entries, so amending an entry after the fact
+    leaves the derived rows stale unless they are recomputed. Consider
+    whether amending an entry should re-run the derivation, or whether the
+    session summary is simply a historical record and the correction belongs
+    on the stock_count it produced.
+
 ## 4. Offline queue ownership (audit finding 4)
 
 Queued writes carry no user or project identity and live under one global
