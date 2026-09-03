@@ -566,68 +566,31 @@ export function useCompleteSession() {
     mutationFn: async ({
       sessionId,
       targetDate,
-      entries,
     }: {
       sessionId: string
       targetDate: string
-      entries: Array<{
-        item_type_id: string
-        lot_id: string | null
-        counted_quantity: number | null
-        entered_by: string | null
-        notes: string | null
-      }>
-    }) => {
-      // Non-lot entries → stock_counts (existing path)
-      const counts = entries
-        .filter((e) => e.counted_quantity !== null && e.lot_id === null)
-        .map((e) => ({
-          item_type_id: e.item_type_id,
-          quantity: e.counted_quantity!,
-          counted_at: new Date(targetDate).toISOString(),
-          counted_by: e.entered_by,
-          notes: e.notes,
-        }))
-      if (counts.length > 0) {
-        const { error: countError } = await supabase.from('stock_counts').insert(counts as never)
-        if (countError) throw countError
-      }
-
-      // Lot entries → update lots.quantity_remaining (auto-exhaust on 0)
-      const lotEntries = entries.filter(e => e.lot_id !== null && e.counted_quantity !== null)
-      for (const e of lotEntries) {
-        const exhausted = e.counted_quantity === 0
-        const { error: lotError } = await db.from('lots').update({
-          quantity_remaining: e.counted_quantity!,
-          exhausted_at: exhausted ? new Date().toISOString() : null,
-        }).eq('id', e.lot_id!)
-        if (lotError) throw lotError
-      }
-
-      // Snapshot each lot-tracked item's new total into stock_counts, so lot
-      // items get an item-level stock time series for burn-rate calculation.
-      // (The session counts all of an item's active lots, so the sum is the total.)
-      const totalsByItem = new Map<string, number>()
-      for (const e of lotEntries) {
-        totalsByItem.set(e.item_type_id, (totalsByItem.get(e.item_type_id) ?? 0) + e.counted_quantity!)
-      }
-      if (totalsByItem.size > 0) {
-        const lotSnapshots = [...totalsByItem.entries()].map(([item_type_id, total]) => ({
-          item_type_id,
-          quantity: total,
-          counted_at: new Date(targetDate).toISOString(),
-          counted_by: null,
-          notes: null,
-        }))
-        const { error: snapErr } = await supabase.from('stock_counts').insert(lotSnapshots as never)
-        if (snapErr) throw snapErr
-      }
-
-      const { error } = await db
-        .from('inventory_sessions')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
-        .eq('id', sessionId)
+    }): Promise<{ completed: boolean; reason?: string }> => {
+      // One transaction server-side. The previous client-side version ran a
+      // stock-count insert, N lot updates, a second insert and the status
+      // update as separate round trips, so a failure midway left inventory
+      // partly applied and a retry double-counted.
+      //
+      // Entries are not sent: they are already persisted in
+      // inventory_session_entries and the function reads them there.
+      const { data, error } = await db.rpc('complete_inventory_session', {
+        p_session_id: sessionId,
+        p_target_date: targetDate,
+      })
       if (error) throw error
+
+      const result = data as { completed: boolean; reason?: string }
+      if (!result.completed && result.reason === 'session_not_found') {
+        throw new Error('SESSION_NOT_FOUND')
+      }
+      // already_completed is not an error: it means this session was finished
+      // by an earlier click or a retry that did land. The caller proceeds to
+      // the summary either way.
+      return result
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inventory_sessions'] })

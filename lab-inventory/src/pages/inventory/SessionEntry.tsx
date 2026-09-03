@@ -103,13 +103,6 @@ export function SessionEntry() {
       await completeSession.mutateAsync({
         sessionId: id,
         targetDate: session.target_date,
-        entries: entries.map((e) => ({
-          item_type_id: e.item_type_id,
-          lot_id: e.lot_id ?? null,
-          counted_quantity: e.counted_quantity,
-          entered_by: e.entered_by,
-          notes: e.notes,
-        })),
       })
       toast.success('Inventaire terminé !')
       navigate(`/inventory/session/${id}/summary`)

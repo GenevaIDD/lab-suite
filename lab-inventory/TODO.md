@@ -25,7 +25,20 @@ item plus queue scoping (item 4).
 
 ## 2. Transactional RPCs for delivery and session completion
 
-The last P1 from the audit. Signatures agreed, SQL not yet written.
+The last P1 from the audit. Session completion DONE 2026-09-03; delivery
+still outstanding.
+
+### complete_inventory_session — DONE
+
+`supabase/add_complete_session_rpc.sql`, client cut over in v0.19.0.
+Verified on the test project against real data
+(`supabase/test_complete_session_rpc.sql`): one call applied 1 stock count,
+1 lot update and 1 snapshot; the second returned `already_completed` and
+wrote nothing; the lot moved 200 -> 7 and rolled back cleanly.
+
+Not yet proven: RLS. The test script runs as `postgres` in the SQL editor,
+which bypasses policies. Completing a session in the app as a tech-role
+user is what exercises those.
 
 - `record_delivery(p_request_id uuid, …) returns jsonb`
   Creates the delivery and its lot in one transaction. Idempotent on a
