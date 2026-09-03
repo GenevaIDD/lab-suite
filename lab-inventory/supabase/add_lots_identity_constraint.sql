@@ -15,13 +15,15 @@
 -- RUN STEP 1 ON ITS OWN FIRST AND REVIEW THE OUTPUT.
 -- Steps 2 and 3 modify live stock records.
 --
--- APPLIED 2026-09-03 (STAGING/TEST ONLY): step 1 returned zero duplicate
--- groups there and the step 3 index was created. That project is sparsely
--- provisioned, so the zero-row result is not evidence about production.
+-- APPLIED 2026-09-03, both environments:
+--   staging/test - no duplicates present; step 3 index created.
+--   production   - two duplicate groups found and reconciled by hand (see
+--                  step 2), then the step 3 index created successfully.
+--                  Index creation is self-verifying: it cannot succeed while
+--                  a duplicate active group remains.
 --
--- PRODUCTION: not yet applied. Run step 1 against production on its own and
--- review the output before deciding whether step 2 is needed. Step 2 has NOT
--- been executed in any environment.
+-- The client fix shipped alongside as v0.18.2, so the constraint and the
+-- corrected upsert went live together.
 -- ============================================================
 
 
@@ -50,81 +52,94 @@ order by count(*) desc, it.name;
 
 
 -- ------------------------------------------------------------
--- STEP 2 — MERGE DUPLICATES  ** MODIFIES STOCK DATA **
+-- STEP 2 - RECONCILE DUPLICATES  ** DO NOT RUN BLIND **
 --
--- For each duplicate group, the oldest lot row survives. Quantities from the
--- other rows are added to it, references from inventory_session_entries,
--- item_observations and disposals are repointed to the survivor, and the
--- redundant rows are deleted.
+-- An automated "merge every duplicate group by summing quantities" script
+-- used to live here. It has been removed, because when this migration was
+-- actually applied the production data disagreed with its central assumption.
 --
--- Summing quantity_remaining is the correct reconciliation here: inventory
--- sessions enumerate one entry per lot, so each duplicate was counted
--- independently and the sum is the true quantity on the shelf.
+-- Production had exactly two duplicate groups, and they needed OPPOSITE
+-- treatment:
 --
--- Wrapped in a transaction — inspect the row counts, then COMMIT or ROLLBACK.
+--  1. Sachets autoclave auto-adhesif (grand), Westfield medical,
+--     exp 2028-10-31, lot 344416
+--       Two genuine deliveries 4m19s apart, quantities 71 and 104, and BOTH
+--       lots had been counted in inventory sessions (session_entries = 1 on
+--       each). The quantities were independently observed, so summing them
+--       is correct. Merged to 175 initial / 166 remaining.
+--
+--  2. 96 Wells Background plate, Applied biosystem, exp 2027-06-26,
+--     lot 2606211
+--       Two lots created 149 MILLISECONDS apart, from two separate delivery
+--       rows, neither ever counted (session_entries = 0 on both). That is a
+--       double-click on the delivery form, not a repeat delivery -- the
+--       DeliveryNew submit guard keys off createDelivery.isPending, which
+--       only goes true after a re-render, so a fast double-click gets two
+--       submissions through.
+--
+--       Summing here would have recorded 2 plates where 1 was delivered.
+--       The duplicate lot AND its phantom delivery row were deleted instead.
+--
+-- The lesson: a duplicate lot group can come from the .is() lookup bug OR
+-- from a double-submitted delivery, and the correct repair is different for
+-- each. Distinguish them with the drill-down below before touching anything.
+--
+--   - different delivery_id, minutes/days apart, both counted   -> merge
+--   - near-simultaneous created_at, never counted               -> delete
+--     the duplicate lot and its delivery
+--
+-- Always confirm against physical stock where the counts are ambiguous.
 -- ------------------------------------------------------------
 
-begin;
+-- Drill-down: per-row detail for every duplicate group. rn = 1 is the oldest
+-- row in each group. Read delivery_id, created_at and session_entries before
+-- deciding merge vs delete.
 
-create temporary table lot_merge_map on commit drop as
+with dup as (
+  select item_type_id, manufacturer, expiry_date, coalesce(lot_number, '') as key
+  from lots
+  where exhausted_at is null
+  group by item_type_id, manufacturer, expiry_date, coalesce(lot_number, '')
+  having count(*) > 1
+)
 select
-  id as duplicate_id,
-  first_value(id) over (
-    partition by item_type_id, manufacturer, expiry_date, coalesce(lot_number, '')
-    order by created_at, id
-  ) as survivor_id
-from lots
-where exhausted_at is null;
+  it.name as item,
+  l.lot_number,
+  row_number() over (
+    partition by l.item_type_id, l.manufacturer, l.expiry_date, coalesce(l.lot_number, '')
+    order by l.created_at, l.id
+  ) as rn,
+  l.id as lot_id,
+  l.created_at,
+  l.delivery_id,
+  l.quantity_initial,
+  l.quantity_remaining,
+  (select count(*) from inventory_session_entries e where e.lot_id = l.id) as session_entries,
+  (select count(*) from item_observations o        where o.lot_id = l.id) as observations,
+  (select count(*) from disposals d                where d.lot_id = l.id) as disposals
+from lots l
+join dup on dup.item_type_id = l.item_type_id
+        and dup.manufacturer = l.manufacturer
+        and dup.expiry_date  = l.expiry_date
+        and dup.key          = coalesce(l.lot_number, '')
+join item_types it on it.id = l.item_type_id
+where l.exhausted_at is null
+order by it.name, l.created_at;
 
-delete from lot_merge_map where duplicate_id = survivor_id;
 
--- Fold the duplicates' quantities into the survivor.
-update lots l
-set quantity_initial   = l.quantity_initial   + agg.add_initial,
-    quantity_remaining = l.quantity_remaining + agg.add_remaining
-from (
-  select m.survivor_id,
-         sum(d.quantity_initial)   as add_initial,
-         sum(d.quantity_remaining) as add_remaining
-  from lot_merge_map m
-  join lots d on d.id = m.duplicate_id
-  group by m.survivor_id
-) agg
-where l.id = agg.survivor_id;
-
--- Preserve history by repointing every reference to the survivor.
-update inventory_session_entries e
-set lot_id = m.survivor_id
-from lot_merge_map m
-where e.lot_id = m.duplicate_id;
-
-update item_observations o
-set lot_id = m.survivor_id
-from lot_merge_map m
-where o.lot_id = m.duplicate_id;
-
-update disposals dp
-set lot_id = m.survivor_id
-from lot_merge_map m
-where dp.lot_id = m.duplicate_id;
-
-delete from lots
-where id in (select duplicate_id from lot_merge_map);
-
--- Verify: this must return zero rows before you commit.
-select
-  item_type_id,
-  manufacturer,
-  expiry_date,
-  coalesce(min(lot_number), '(none)') as lot_number,
-  count(*)
-from lots
-where exhausted_at is null
-group by item_type_id, manufacturer, expiry_date, coalesce(lot_number, '')
-having count(*) > 1;
-
-commit;
-
+-- Statements actually applied to production on 2026-09-03, kept as worked
+-- examples of the two shapes. Do not re-run: these ids no longer exist.
+--
+--   -- merge (Sachets): survivor takes the summed quantities
+--   update lots set quantity_initial = 175.00, quantity_remaining = 166.00
+--   where id = '4a2421e0-7a5c-4373-a637-570cc4440ad9';
+--   update inventory_session_entries set lot_id = '4a2421e0-...'
+--   where lot_id = '970eb95f-...';
+--   delete from lots where id = '970eb95f-...';
+--
+--   -- delete (plate): drop the duplicate lot and the phantom delivery
+--   delete from lots      where id = '5ec6f216-...';
+--   delete from deliveries where id = '053d51a0-...';
 
 -- ------------------------------------------------------------
 -- STEP 3 — CONSTRAINT
