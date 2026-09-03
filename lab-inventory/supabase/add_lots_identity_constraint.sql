@@ -15,12 +15,13 @@
 -- RUN STEP 1 ON ITS OWN FIRST AND REVIEW THE OUTPUT.
 -- Steps 2 and 3 modify live stock records.
 --
--- APPLIED 2026-09-03 (production): step 1 returned zero rows -- the bug
--- never fired, because it requires a second delivery matching an existing
--- lot's identity and none had been recorded. Step 2 was skipped; only the
--- step 3 index was created. Step 2 is retained for any other environment
--- that ran the affected code long enough to accumulate duplicates, and has
--- NOT been executed anywhere.
+-- APPLIED 2026-09-03 (STAGING/TEST ONLY): step 1 returned zero duplicate
+-- groups there and the step 3 index was created. That project is sparsely
+-- provisioned, so the zero-row result is not evidence about production.
+--
+-- PRODUCTION: not yet applied. Run step 1 against production on its own and
+-- review the output before deciding whether step 2 is needed. Step 2 has NOT
+-- been executed in any environment.
 -- ============================================================
 
 
