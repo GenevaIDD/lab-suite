@@ -121,7 +121,7 @@ export function EquipmentNew() {
           if (result) await addDoc.mutateAsync({
             equipment_id: equipment.id,
             description: d.description,
-            file_url: result.url,
+            file_url: result.path,
             file_name: result.name,
             file_size_bytes: result.size,
             uploaded_by: null,

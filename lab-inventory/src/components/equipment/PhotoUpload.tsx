@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Camera, Upload, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { uploadEquipmentPhoto } from '@/lib/mutations'
+import { PHOTO_BUCKET, useSignedUrls } from '@/lib/file-storage'
 import { toast } from 'sonner'
 
 interface PhotoUploadProps {
@@ -13,6 +14,8 @@ export function PhotoUpload({ photos, onChange }: PhotoUploadProps) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  // Stored values are object paths in a private bucket, not renderable URLs.
+  const photoUrl = useSignedUrls(PHOTO_BUCKET, photos)
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
@@ -79,9 +82,11 @@ export function PhotoUpload({ photos, onChange }: PhotoUploadProps) {
 
       {photos.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-          {photos.map((url, idx) => (
-            <div key={url} className="relative group aspect-square rounded-md overflow-hidden border bg-muted">
-              <img src={url} alt={`Photo ${idx + 1}`} className="object-cover w-full h-full" />
+          {photos.map((ref, idx) => (
+            <div key={ref} className="relative group aspect-square rounded-md overflow-hidden border bg-muted">
+              {photoUrl(ref) && (
+                <img src={photoUrl(ref)} alt={`Photo ${idx + 1}`} className="object-cover w-full h-full" />
+              )}
               <button
                 type="button"
                 onClick={() => removePhoto(idx)}

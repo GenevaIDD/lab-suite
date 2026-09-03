@@ -3,10 +3,12 @@ import { FileText, Upload, Trash2, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { uploadEquipmentDocument, useAddEquipmentDocument, useDeleteEquipmentDocument } from '@/lib/mutations'
+import { DOC_BUCKET, useSignedUrls } from '@/lib/file-storage'
 import { useEquipmentDocuments } from '@/lib/queries'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 function formatBytes(bytes: number | null) {
   if (!bytes) return ''
@@ -18,6 +20,7 @@ function formatBytes(bytes: number | null) {
 // ── Used on the detail page (fetches and displays saved docs) ──
 export function EquipmentDocumentList({ equipmentId }: { equipmentId: string }) {
   const { data: docs = [], isLoading } = useEquipmentDocuments(equipmentId)
+  const signedUrl = useSignedUrls(DOC_BUCKET, docs.map(d => d.file_url))
   const deleteDoc = useDeleteEquipmentDocument()
   const { profile } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -36,7 +39,7 @@ export function EquipmentDocumentList({ equipmentId }: { equipmentId: string }) 
       await addDoc.mutateAsync({
         equipment_id: equipmentId,
         description: pendingDesc.trim(),
-        file_url: result.url,
+        file_url: result.path,
         file_name: result.name,
         file_size_bytes: result.size,
         uploaded_by: profile?.full_name ?? null,
@@ -69,8 +72,13 @@ export function EquipmentDocumentList({ equipmentId }: { equipmentId: string }) 
                 </p>
               </div>
               <div className="flex gap-1 shrink-0">
-                <a href={doc.file_url} target="_blank" rel="noopener"
-                  className="p-1.5 rounded hover:bg-muted" title="Ouvrir">
+                <a
+                  href={signedUrl(doc.file_url)}
+                  target="_blank"
+                  rel="noopener"
+                  className={cn('p-1.5 rounded hover:bg-muted', !signedUrl(doc.file_url) && 'pointer-events-none opacity-40')}
+                  title="Ouvrir"
+                >
                   <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                 </a>
                 <button

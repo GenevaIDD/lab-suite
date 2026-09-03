@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { enqueue, isRetryableFailure } from './offline-queue'
+import { DOC_BUCKET, PHOTO_BUCKET } from './file-storage'
 import { inviteUser, setUserActive, setUserPassword } from './admin-api'
 import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry, UserRole } from '@/types/database'
 
@@ -758,14 +759,15 @@ export function useDiscardLot() {
   })
 }
 
-export async function uploadEquipmentDocument(file: File): Promise<{ url: string; name: string; size: number } | null> {
+// Returns the bare object path. The bucket is private, so a public URL would
+// not authenticate the download -- readers mint a signed URL via useSignedUrls.
+export async function uploadEquipmentDocument(file: File): Promise<{ path: string; name: string; size: number } | null> {
   if (!navigator.onLine) return null
   const ext = file.name.split('.').pop() ?? 'bin'
   const path = `${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage.from('equipment-documents').upload(path, file)
+  const { error } = await supabase.storage.from(DOC_BUCKET).upload(path, file)
   if (error) throw error
-  const { data } = supabase.storage.from('equipment-documents').getPublicUrl(path)
-  return { url: data.publicUrl, name: file.name, size: file.size }
+  return { path, name: file.name, size: file.size }
 }
 
 type DocPayload = { equipment_id: string; description: string; file_url: string; file_name: string; file_size_bytes: number | null; uploaded_by: string | null }
@@ -794,14 +796,14 @@ export function useDeleteEquipmentDocument() {
   })
 }
 
+// Returns the bare object path -- see uploadEquipmentDocument.
 export async function uploadEquipmentPhoto(file: File): Promise<string | null> {
   if (!navigator.onLine) return null
   const ext = file.name.split('.').pop() ?? 'jpg'
   const path = `${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage.from('equipment-photos').upload(path, file)
+  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file)
   if (error) throw error
-  const { data } = supabase.storage.from('equipment-photos').getPublicUrl(path)
-  return data.publicUrl
+  return path
 }
 
 // Set equipment functional status; records the change (with note) in

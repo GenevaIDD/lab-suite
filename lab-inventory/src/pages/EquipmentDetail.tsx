@@ -24,6 +24,7 @@ import { EquipmentDocumentList } from '@/components/equipment/DocumentUpload'
 import { useLogMaintenance, useRetireEquipment, useUnretireEquipment, useDeleteMaintenanceLog, useAddObservation, useDeleteObservation, useDeleteEquipment, useSetEquipmentFunctional, useAddMaintenanceLog, useLinkAccessory, useUnlinkAccessory } from '@/lib/mutations'
 import { toast } from 'sonner'
 import { cn, todayStr } from '@/lib/utils'
+import { PHOTO_BUCKET, useSignedUrls } from '@/lib/file-storage'
 import type { MaintenanceSchedule, EquipmentStatusLog, EquipmentAccessory } from '@/types/database'
 
 export function EquipmentDetail() {
@@ -40,6 +41,8 @@ export function EquipmentDetail() {
   const { data: statusLog = [] } = useEquipmentStatusLog(id)
   const { data: accessories = [] } = useEquipmentAccessories(id)
   const { data: usedBy = [] } = useEquipmentHosts(id)
+  // Photos live in a private bucket; resolve each stored path to a signed URL.
+  const photoUrl = useSignedUrls(PHOTO_BUCKET, equipment?.photo_urls ?? [])
 
   if (isLoading) {
     return (
@@ -121,9 +124,20 @@ export function EquipmentDetail() {
 
       {equipment.photo_urls.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {equipment.photo_urls.map((url, i) => (
-            <a key={url} href={url} target="_blank" rel="noopener" className="aspect-square rounded-md overflow-hidden border bg-muted">
-              <img src={url} alt={`${equipment.name} photo ${i + 1}`} className="object-cover w-full h-full" />
+          {equipment.photo_urls.map((ref, i) => (
+            <a
+              key={ref}
+              href={photoUrl(ref)}
+              target="_blank"
+              rel="noopener"
+              className={cn(
+                'aspect-square rounded-md overflow-hidden border bg-muted',
+                !photoUrl(ref) && 'pointer-events-none',
+              )}
+            >
+              {photoUrl(ref) && (
+                <img src={photoUrl(ref)} alt={`${equipment.name} photo ${i + 1}`} className="object-cover w-full h-full" />
+              )}
             </a>
           ))}
         </div>
