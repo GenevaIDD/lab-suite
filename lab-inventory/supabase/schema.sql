@@ -27,10 +27,15 @@ create table profiles (
 );
 
 -- Auto-create profile on signup
-create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+-- search_path must be pinned: the trigger fires inside the auth service's
+-- session, whose search_path excludes `public`, so an unqualified
+-- `insert into profiles` cannot resolve and user creation fails with
+-- "Database error creating new user". See fix_handle_new_user_search_path.sql.
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer
+set search_path = public as $$
 begin
-  insert into profiles (id, full_name, email)
+  insert into public.profiles (id, full_name, email)
   values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''), new.email);
   return new;
 end;
@@ -628,6 +633,11 @@ create policy "write disposals" on disposals for insert with check (
 -- Storage bucket for equipment photos
 -- ============================================================
 
+-- Both buckets are private: the app reads them through signed URLs
+-- (src/lib/file-storage.ts). NOTE: on the production project as of
+-- 2026-09-03 equipment-photos is public=true -- it was flipped in the
+-- dashboard to work around the old getPublicUrl() read path, before signed
+-- URLs existed. That drift can now be closed by setting it back to false.
 insert into storage.buckets (id, name, public) values ('equipment-photos', 'equipment-photos', false)
   on conflict (id) do nothing;
 

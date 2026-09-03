@@ -15,9 +15,11 @@ const SIGNED_URL_STALE_MS = 50 * 60 * 1000
  * Normalise a stored reference to a bare object path.
  *
  * New uploads store the path alone. Rows written before the switch to signed
- * URLs hold a full `getPublicUrl()` result, which never worked against a
- * private bucket. Those are rewritten by fix_storage_signed_urls.sql, but this
- * tolerates either form so the UI works during and after the backfill.
+ * URLs hold a full `getPublicUrl()` result. Those worked only because
+ * equipment-photos had been flipped to public in the dashboard; the private
+ * equipment-documents bucket rejected them, which is why documents were
+ * unusable. Both forms are accepted here so the UI works before, during and
+ * after fix_storage_signed_urls.sql runs.
  */
 export function toObjectPath(stored: string, bucket: string): string {
   const trimmed = stored.trim()
