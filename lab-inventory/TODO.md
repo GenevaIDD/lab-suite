@@ -55,14 +55,31 @@ For lot-tracked items that leaves a detectable duplicate row. For non-tracked
 items a double-submit just adds the delivery quantity twice with no trace, and
 cannot be audited retrospectively. Fixing the write path is the only remedy.
 
-## 3. Verify against a seeded test project
+## 3. Test project parity — DONE 2026-09-03
 
-The test Supabase project is only partly provisioned — no storage buckets, and
-its lot data does not mirror production. That cost real time during the audit
-work: test-server results were twice mistaken for production ones.
+The test project (`uizvyziucufrkdxinzda`, eu-west-1) now holds a copy of
+production's public schema data:
 
-Bring it to parity (run `schema.sql` in full, including the storage block) so
-the RPC work above can be exercised somewhere real before reaching Uvira.
+    item_types 178   equipment 76   lots 99   deliveries 134
+    sessions 22      stock_counts 271         session_entries 692
+
+Schema was already at full parity — every table, column, enum value, the
+current_stock view and both storage buckets. Only data was missing.
+
+Copied with `pg_dump --data-only --schema=public --exclude-table=profiles`
+via the session pooler (direct connections are IPv6-only and unreachable
+from an IPv4 network). `profiles` is excluded because it foreign-keys to
+`auth.users`; test keeps its own logins.
+
+Known gaps, both expected:
+  - Equipment photos render blank. Image files live in storage, not
+    Postgres, so they do not travel in a database dump.
+  - Test data is a point-in-time snapshot and will drift from production.
+
+Note for future debugging: an anon key cannot read `storage.buckets` or
+PostgREST's OpenAPI root, and both return empty rather than an error. During
+this work that made buckets and tables look absent when they existed. Verify
+schema questions in the SQL editor, not through the anon key.
 
 ## 4. Offline queue ownership (audit finding 4)
 
