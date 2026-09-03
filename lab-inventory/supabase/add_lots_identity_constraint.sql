@@ -14,6 +14,13 @@
 --
 -- RUN STEP 1 ON ITS OWN FIRST AND REVIEW THE OUTPUT.
 -- Steps 2 and 3 modify live stock records.
+--
+-- APPLIED 2026-09-03 (production): step 1 returned zero rows -- the bug
+-- never fired, because it requires a second delivery matching an existing
+-- lot's identity and none had been recorded. Step 2 was skipped; only the
+-- step 3 index was created. Step 2 is retained for any other environment
+-- that ran the affected code long enough to accumulate duplicates, and has
+-- NOT been executed anywhere.
 -- ============================================================
 
 
@@ -24,19 +31,21 @@
 -- ------------------------------------------------------------
 
 select
-  item_type_id,
-  manufacturer,
-  expiry_date,
-  coalesce(lot_number, '(none)') as lot_number,
-  count(*)                       as duplicate_rows,
-  sum(quantity_initial)          as merged_quantity_initial,
-  sum(quantity_remaining)        as merged_quantity_remaining,
-  array_agg(id order by created_at) as lot_ids
-from lots
-where exhausted_at is null
-group by item_type_id, manufacturer, expiry_date, coalesce(lot_number, '')
+  it.name                           as item,
+  l.manufacturer,
+  l.expiry_date,
+  coalesce(min(l.lot_number), '(none)') as lot_number,
+  count(*)                          as duplicate_rows,
+  sum(l.quantity_initial)           as merged_quantity_initial,
+  sum(l.quantity_remaining)         as merged_quantity_remaining,
+  array_agg(l.quantity_remaining order by l.created_at) as remaining_per_row,
+  array_agg(l.id order by l.created_at)                 as lot_ids
+from lots l
+join item_types it on it.id = l.item_type_id
+where l.exhausted_at is null
+group by it.name, l.item_type_id, l.manufacturer, l.expiry_date, coalesce(l.lot_number, '')
 having count(*) > 1
-order by count(*) desc;
+order by count(*) desc, it.name;
 
 
 -- ------------------------------------------------------------
@@ -103,7 +112,11 @@ where id in (select duplicate_id from lot_merge_map);
 
 -- Verify: this must return zero rows before you commit.
 select
-  item_type_id, manufacturer, expiry_date, coalesce(lot_number, '(none)') as lot_number, count(*)
+  item_type_id,
+  manufacturer,
+  expiry_date,
+  coalesce(min(lot_number), '(none)') as lot_number,
+  count(*)
 from lots
 where exhausted_at is null
 group by item_type_id, manufacturer, expiry_date, coalesce(lot_number, '')
