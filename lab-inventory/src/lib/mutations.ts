@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import { enqueue } from './offline-queue'
+import { enqueue, isRetryableFailure } from './offline-queue'
 import { inviteUser, setUserActive, setUserPassword } from './admin-api'
 import type { Equipment, MaintenanceSchedule, MaintenanceLog, ItemType, ItemSource, Delivery, StockCount, InventorySession, InventorySessionEntry, UserRole } from '@/types/database'
 
@@ -16,27 +16,30 @@ async function tryWriteOrQueue<T>(
     enqueue({ table, operation, payload, recordId })
     return null
   }
-  try {
-    if (operation === 'insert') {
-      const { data, error } = await supabase.from(table as never).insert(payload as never).select().single()
-      if (error) throw error
-      return data as T
-    }
-    if (operation === 'update' && recordId) {
-      const { data, error } = await supabase.from(table as never).update(payload as never).eq('id', recordId).select().single()
-      if (error) throw error
-      return data as T
-    }
-    if (operation === 'delete' && recordId) {
-      const { error } = await supabase.from(table as never).delete().eq('id', recordId)
-      if (error) throw error
-      return null
-    }
+
+  let data: unknown = null
+  let error: { message?: string } | null
+  let status: number | undefined
+
+  if (operation === 'insert') {
+    ;({ data, error, status } = await supabase.from(table as never).insert(payload as never).select().single())
+  } else if (operation === 'update' && recordId) {
+    ;({ data, error, status } = await supabase.from(table as never).update(payload as never).eq('id', recordId).select().single())
+  } else if (operation === 'delete' && recordId) {
+    ;({ error, status } = await supabase.from(table as never).delete().eq('id', recordId))
+  } else {
     return null
-  } catch (e) {
-    enqueue({ table, operation, payload, recordId })
-    throw e
   }
+
+  if (!error) return data as T
+
+  // Only queue failures a retry could fix. An RLS denial, a constraint
+  // violation or a bad payload will fail identically on replay, and a queued
+  // copy would retry forever behind a stuck "pending writes" badge.
+  if (isRetryableFailure(status)) {
+    enqueue({ table, operation, payload, recordId })
+  }
+  throw error
 }
 
 export function useCreateEquipment() {
@@ -646,16 +649,23 @@ export function useUpsertLot() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: LotCreateInput) => {
-      // Check for existing matching lot (same identity key)
-      const { data: existing } = await db
+      // Check for existing matching lot (same identity key).
+      // lot_number is nullable, and PostgREST's `is` operator only accepts
+      // null/true/false — passing a lot number string through it produces an
+      // invalid filter, so the operator has to be chosen per value.
+      let match = db
         .from('lots')
         .select('id, quantity_initial, quantity_remaining')
         .eq('item_type_id', input.item_type_id)
         .eq('manufacturer', input.manufacturer)
         .eq('expiry_date', input.expiry_date)
-        .is('lot_number', input.lot_number)
         .is('exhausted_at', null)
-        .maybeSingle()
+      match = input.lot_number === null
+        ? match.is('lot_number', null)
+        : match.eq('lot_number', input.lot_number)
+
+      const { data: existing, error: lookupError } = await match.maybeSingle()
+      if (lookupError) throw lookupError
 
       if (existing) {
         // Merge into existing lot — add quantity

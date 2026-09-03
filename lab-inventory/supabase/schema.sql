@@ -203,22 +203,6 @@ create table inventory_sessions (
 
 create index is_status_idx on inventory_sessions(status);
 
-create table inventory_session_entries (
-  id               uuid primary key default uuid_generate_v4(),
-  session_id       uuid not null references inventory_sessions(id) on delete cascade,
-  item_type_id     uuid not null references item_types(id) on delete cascade,
-  lot_id           uuid references lots(id) on delete set null,  -- null for non-tracked items
-  sort_order       int not null,
-  counted_quantity numeric(10, 2),   -- null until entered
-  entered_at       timestamptz,
-  entered_by       text,
-  notes            text,
-  created_at       timestamptz not null default now()
-);
-
-create index ise_session_idx on inventory_session_entries(session_id);
-create index ise_sort_idx    on inventory_session_entries(session_id, sort_order);
-
 -- ============================================================
 -- Lots
 -- Tracks individual batches for items with track_lots = true.
@@ -243,6 +227,30 @@ create table lots (
 create index lots_item_idx     on lots(item_type_id);
 create index lots_active_idx   on lots(item_type_id) where exhausted_at is null;
 create index lots_expiry_idx   on lots(expiry_date) where exhausted_at is null;
+
+-- Lot identity. Partial so a lot number can be reused once the previous
+-- batch is exhausted; coalesce() because NULLs compare as distinct in a
+-- unique index, which would let unnumbered lots duplicate freely.
+create unique index lots_identity_idx
+  on lots (item_type_id, manufacturer, expiry_date, coalesce(lot_number, ''))
+  where exhausted_at is null;
+
+create table inventory_session_entries (
+  id               uuid primary key default uuid_generate_v4(),
+  session_id       uuid not null references inventory_sessions(id) on delete cascade,
+  item_type_id     uuid not null references item_types(id) on delete cascade,
+  lot_id           uuid references lots(id) on delete set null,  -- null for non-tracked items
+  sort_order       int not null,
+  counted_quantity numeric(10, 2),   -- null until entered
+  entered_at       timestamptz,
+  entered_by       text,
+  notes            text,
+  created_at       timestamptz not null default now()
+);
+
+create index ise_session_idx on inventory_session_entries(session_id);
+create index ise_sort_idx    on inventory_session_entries(session_id, sort_order);
+
 
 -- ============================================================
 -- View: current stock per item type
