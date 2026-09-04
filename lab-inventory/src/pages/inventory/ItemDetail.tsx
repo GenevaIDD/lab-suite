@@ -14,9 +14,9 @@ import { StockChart, BurnChart } from '@/components/ui/MiniChart'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots, useItemDisposals, useItemObservations } from '@/lib/queries'
 import { useUpsertLot, useDiscardLot, useAddItemObservation, useDeleteItemObservation } from '@/lib/mutations'
-import { buildTimeline, buildBurnRate, buildAnomalies } from '@/lib/stockCalc'
+import { buildTimeline, buildBurnRate, buildAnomalies, rollUpCounts } from '@/lib/stockCalc'
 import { getExpiringLots } from '@/lib/lotCalc'
-import { useAuth, isAdmin, canManageStock } from '@/lib/auth'
+import { useAuth, isAdmin, canEditItem, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 import { storageLabel } from '@/lib/storage'
 import { ENABLE_MANUAL_LOT_ENTRY } from '@/lib/flags'
@@ -49,9 +49,12 @@ export function ItemDetail() {
   const currentQty   = useMemo(() => stockRows.find(r => r.item_type_id === id)?.quantity ?? 0, [stockRows, id])
   const lastCounted  = useMemo(() => stockRows.find(r => r.item_type_id === id)?.last_counted_at, [stockRows, id])
   const isLow        = item ? currentQty < item.min_threshold : false
-  const timeline     = useMemo(() => buildTimeline(counts, deliveries), [counts, deliveries])
-  const burnRates    = useMemo(() => buildBurnRate(counts, deliveries, disposals), [counts, deliveries, disposals])
-  const anomalies    = useMemo(() => buildAnomalies(counts, deliveries, disposals), [counts, deliveries, disposals])
+  // The charts want one point per count event; the history table below shows
+  // the raw per-lot rows. See rollUpCounts.
+  const countPoints  = useMemo(() => rollUpCounts(counts), [counts])
+  const timeline     = useMemo(() => buildTimeline(countPoints, deliveries), [countPoints, deliveries])
+  const burnRates    = useMemo(() => buildBurnRate(countPoints, deliveries, disposals), [countPoints, deliveries, disposals])
+  const anomalies    = useMemo(() => buildAnomalies(countPoints, deliveries, disposals), [countPoints, deliveries, disposals])
   const expiringLots = useMemo(() => getExpiringLots(activeLots, 60), [activeLots])
   const avgBurnRate  = useMemo(() => {
     if (!burnRates.length) return null
@@ -90,10 +93,12 @@ export function ItemDetail() {
           </div>
           <p className="text-sm text-muted-foreground mt-1">{t('item.unit')} {item.unit}</p>
         </div>
-        <Link to={`/inventory/items/${id}/edit`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-          <Edit className="h-4 w-4 mr-1" />
-          {t('action.edit')}
-        </Link>
+        {canEditItem(profile) && (
+          <Link to={`/inventory/items/${id}/edit`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+            <Edit className="h-4 w-4 mr-1" />
+            {t('action.edit')}
+          </Link>
+        )}
       </div>
 
       {/* Stat cards */}
@@ -316,20 +321,31 @@ export function ItemDetail() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('label.date')}</TableHead>
+                    <TableHead>{t('item.col.lot')}</TableHead>
                     <TableHead className="text-right">{t('label.quantity')}</TableHead>
                     <TableHead>{t('item.col.counted.by')}</TableHead>
                     <TableHead>{t('label.notes')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {[...counts].reverse().map(c => (
-                    <TableRow key={c.id}>
-                      <TableCell>{fmt(c.counted_at)}</TableCell>
-                      <TableCell className="text-right tabular-nums font-medium">{c.quantity}</TableCell>
-                      <TableCell className="text-muted-foreground">{c.counted_by ?? '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{c.notes ?? '—'}</TableCell>
-                    </TableRow>
-                  ))}
+                  {[...counts].reverse().map(c => {
+                    const countedLot = c.lot_id ? allLots.find(l => l.id === c.lot_id) : undefined
+                    return (
+                      <TableRow key={c.id}>
+                        <TableCell>{fmt(c.counted_at)}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {countedLot
+                            ? lotLabel(t, countedLot)
+                            : c.is_legacy_aggregate
+                              ? <span title={t('item.count.aggregate.hint')}>{t('item.count.aggregate')}</span>
+                              : '—'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">{c.quantity}</TableCell>
+                        <TableCell className="text-muted-foreground">{c.counted_by ?? '—'}</TableCell>
+                        <TableCell className="text-muted-foreground">{c.notes ?? '—'}</TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             )}

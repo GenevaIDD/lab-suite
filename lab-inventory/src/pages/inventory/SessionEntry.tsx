@@ -74,6 +74,7 @@ export function SessionEntry() {
         sessionId: id,
         countedQuantity: skip ? null : Number(value),
         enteredBy: profile?.full_name ?? null,
+        enteredByUserId: profile?.id ?? null,
         notes: entryNotes || null,
       })
       if (currentIdx < entries.length - 1) {

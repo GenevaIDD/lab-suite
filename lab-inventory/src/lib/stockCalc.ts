@@ -69,6 +69,61 @@ export function disposalsBetween(
     .reduce((sum, d) => sum + d.quantity, 0)
 }
 
+/**
+ * Collapse per-lot counts into item-level points, one per count event.
+ *
+ * buildTimeline, buildBurnRate and buildAnomalies all treat each CountPoint as
+ * the item's whole quantity at that moment. Since
+ * supabase/add_stock_count_lot_provenance.sql, a lot-tracked item gets one
+ * stock_counts row per lot instead of a single SUM, so feeding them raw would
+ * make consecutive "counts" be different lots and the burn rate meaningless.
+ *
+ * A session counts every lot at once, so its rows share one timestamp and sum
+ * straight to the item total. The ad-hoc form counts ONE lot at a time, giving
+ * each its own timestamp -- so summing within a timestamp is not enough. We
+ * carry a running quantity per lot: at each count event the item's total is
+ * that lot's new value plus the last known value of every other lot.
+ *
+ * An item-level row (lot_id null) is already a total, so it is emitted as-is
+ * and clears the running map -- that covers non-tracked items and the legacy
+ * aggregates written before per-lot counting.
+ *
+ * Known limit: a lot discarded via useDiscardLot writes no count row, so it
+ * stays in the map at its last counted value until the next count touches it.
+ * Disposals reach the burn rate separately, through disposalsBetween.
+ */
+export function rollUpCounts<T extends CountPoint & { lot_id?: string | null }>(
+  counts: T[],
+): CountPoint[] {
+  const ordered = [...counts].sort((a, b) => a.counted_at.localeCompare(b.counted_at))
+
+  const groups: { counted_at: string; rows: T[] }[] = []
+  for (const c of ordered) {
+    const last = groups[groups.length - 1]
+    if (last && last.counted_at === c.counted_at) last.rows.push(c)
+    else groups.push({ counted_at: c.counted_at, rows: [c] })
+  }
+
+  const lotQty = new Map<string, number>()
+  const points: CountPoint[] = []
+
+  for (const { counted_at, rows } of groups) {
+    const lotRows = rows.filter(r => r.lot_id)
+    if (lotRows.length > 0) {
+      for (const r of lotRows) lotQty.set(r.lot_id as string, r.quantity)
+      let total = 0
+      for (const q of lotQty.values()) total += q
+      points.push({ counted_at, quantity: total })
+    } else {
+      // Last row wins, matching current_stock's (counted_at, created_at) tie-break.
+      lotQty.clear()
+      points.push({ counted_at, quantity: rows[rows.length - 1].quantity })
+    }
+  }
+
+  return points
+}
+
 /** Merge counts + deliveries into a single sorted timeline for the stock chart */
 export function buildTimeline(
   counts: CountPoint[],

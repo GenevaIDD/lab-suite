@@ -35,7 +35,9 @@ const CAPABILITIES: { key: TranslationKey; roles: UserRole[] }[] = [
   { key: 'cap.create.item',  roles: ['admin', 'lab_manager', 'lab_team'] },
   { key: 'cap.create.equip', roles: ['admin', 'lab_manager', 'lab_team'] },
   { key: 'cap.maint.sched',  roles: ['admin', 'lab_manager', 'lab_team'] },
-  { key: 'cap.edit',         roles: ['admin', 'lab_manager'] },
+  { key: 'cap.edit.item',    roles: ['admin', 'lab_manager', 'tech', 'lab_team'] },
+  { key: 'cap.edit.units',   roles: ['admin', 'lab_manager'] },
+  { key: 'cap.edit.equip',   roles: ['admin', 'lab_manager'] },
   { key: 'cap.delete',       roles: ['admin'] },
   { key: 'cap.users',        roles: ['admin'] },
 ]

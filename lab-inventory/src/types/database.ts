@@ -145,12 +145,25 @@ export interface Disposal {
 export interface StockCount {
   id: string
   item_type_id: string
+  // Which lot was counted. null = an item-level count: every count of a
+  // non-tracked item, plus pre-migration aggregate rows (see
+  // is_legacy_aggregate). See supabase/add_stock_count_lot_provenance.sql.
+  lot_id: string | null
+  // The session this count came from. null = counted outside a session.
+  session_id: string | null
   quantity: number
   counted_at: string
+  // counted_by is the declared name (free text, may be typed over);
+  // counted_by_user_id is the account that recorded it.
   counted_by: string | null
+  counted_by_user_id: string | null
+  // A SUM across an item's lots, written before per-lot counts existed.
+  // Cannot be decomposed and must never be offered for correction.
+  is_legacy_aggregate: boolean
   notes: string | null
   created_at: string
   item_type?: ItemType
+  lot?: InventoryLot
 }
 
 export interface Delivery {
@@ -190,6 +203,7 @@ export interface InventorySessionEntry {
   counted_quantity: number | null
   entered_at: string | null
   entered_by: string | null
+  entered_by_user_id: string | null
   notes: string | null
   created_at: string
   item_type?: ItemType

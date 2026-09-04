@@ -19,7 +19,7 @@ import { SelectOrNew } from '@/components/ui/SelectOrNew'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useItemType, useDistinctCategories, useDistinctUnits, useItemSources } from '@/lib/queries'
 import { useUpdateItemType, useCreateItemSource, useDeleteItemSource, useDeleteItemType } from '@/lib/mutations'
-import { useAuth, isAdmin } from '@/lib/auth'
+import { useAuth, isAdmin, canEditItem, canEditItemUnits } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 import { STORAGE_CONDITIONS, storageLabel } from '@/lib/storage'
 import { toast } from 'sonner'
@@ -35,6 +35,9 @@ export function ItemEdit() {
   const { data: categories = [] } = useDistinctCategories()
   const { data: units = [] } = useDistinctUnits()
   const updateItem = useUpdateItemType()
+  // unit + track_lots rewrite the meaning of historical data, so they stay
+  // admin/lab_manager. The DB enforces this too (guard_item_type_update).
+  const canEditUnits = canEditItemUnits(profile)
 
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
@@ -79,6 +82,18 @@ export function ItemEdit() {
     } catch (err) {
       toast.error(`${t('form.error')} : ${(err as Error).message}`)
     }
+  }
+
+  if (!canEditItem(profile)) {
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <Link to={`/inventory/items/${id}`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          {t('item.back')}
+        </Link>
+        <p className="text-sm text-muted-foreground">{t('edit.no.access')}</p>
+      </div>
+    )
   }
 
   if (isLoading) {
@@ -134,7 +149,11 @@ export function ItemEdit() {
                 onChange={setUnit}
                 options={units}
                 placeholder={t('itemform.select.ph')}
+                disabled={!canEditUnits}
               />
+              {!canEditUnits && (
+                <p className="text-xs text-muted-foreground">{t('edit.locked.hint')}</p>
+              )}
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="storage">{t('item.storage.label')}</Label>
@@ -163,11 +182,12 @@ export function ItemEdit() {
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <label className="flex items-start gap-3 cursor-pointer">
+              <label className={cn('flex items-start gap-3', canEditUnits ? 'cursor-pointer' : 'opacity-60')}>
                 <input
                   type="checkbox"
                   checked={trackLots}
                   onChange={e => setTrackLots(e.target.checked)}
+                  disabled={!canEditUnits}
                   className="mt-0.5 rounded"
                 />
                 <div>
@@ -175,6 +195,9 @@ export function ItemEdit() {
                   <p className="text-xs text-muted-foreground">
                     {t('itemform.tracklots.hint')}
                   </p>
+                  {!canEditUnits && (
+                    <p className="text-xs text-muted-foreground">{t('edit.locked.hint')}</p>
+                  )}
                 </div>
               </label>
             </div>

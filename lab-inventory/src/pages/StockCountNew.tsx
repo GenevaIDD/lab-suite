@@ -55,19 +55,18 @@ export function StockCountNew() {
       if (isLot) {
         if (!lotId) { toast.error(t('quickcount.lot.pick')); return }
         await updateLot.mutateAsync({ lotId, itemTypeId, countedQuantity: Number(quantity) })
-        // Snapshot the item's new total into stock_counts. current_stock reads
-        // "last counted" for lot items from stock_counts (lots carry no count
-        // date), so without this the date would stay frozen at lot creation.
-        const newTotal = lots.reduce(
-          (sum, l) => sum + (l.id === lotId ? Number(quantity) : Number(l.quantity_remaining)),
-          0,
-        )
+        // Record the lot that was actually counted. This used to write a SUM
+        // across the item's lots, so that current_stock's "last counted" date
+        // would move; latest_count_date now takes the newest count of any
+        // kind, so the per-lot row serves that purpose and is correctable.
         await createCount.mutateAsync({
           item_type_id: itemTypeId,
-          quantity: newTotal,
+          lot_id: lotId,
+          quantity: Number(quantity),
           counted_at: new Date().toISOString(),
           counted_by: countedBy || null,
-          notes: null,
+          counted_by_user_id: profile?.id ?? null,
+          notes: notes || null,
         })
         toast.success(t('quickcount.lot.saved'))
       } else {
@@ -76,6 +75,7 @@ export function StockCountNew() {
           quantity: Number(quantity),
           counted_at: new Date(countedAt).toISOString(),
           counted_by: countedBy || null,
+          counted_by_user_id: profile?.id ?? null,
           notes: notes || null,
         })
         toast.success(t('quickcount.saved'))

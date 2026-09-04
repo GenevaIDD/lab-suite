@@ -4,6 +4,7 @@ import {
   buildBurnRate,
   buildAnomalies,
   deliveriesBetween,
+  rollUpCounts,
 } from './stockCalc'
 
 // ── helpers ───────────────────────────────────────────────────
@@ -238,5 +239,135 @@ describe('buildAnomalies', () => {
     expect(result).toHaveLength(2)
     expect(result[0].unexplained).toBe(100)
     expect(result[1].unexplained).toBe(100)
+  })
+})
+
+
+// ── rollUpCounts ──────────────────────────────────────────────
+// Per-lot counts (add_stock_count_lot_provenance.sql) must collapse into one
+// item-level point per count event before the chart builders see them --
+// otherwise consecutive "counts" are different lots and the burn rate is junk.
+const lotCount = (qty: number, date: string, lot: string | null) =>
+  ({ quantity: qty, counted_at: date, lot_id: lot })
+
+describe('rollUpCounts', () => {
+  it('sums the lot rows sharing one count timestamp', () => {
+    const rolled = rollUpCounts([
+      lotCount(10, '2026-01-10T00:00:00Z', 'lot-a'),
+      lotCount(5,  '2026-01-10T00:00:00Z', 'lot-b'),
+      lotCount(2,  '2026-01-10T00:00:00Z', 'lot-c'),
+    ])
+    expect(rolled).toEqual([{ counted_at: '2026-01-10T00:00:00Z', quantity: 17 }])
+  })
+
+  it('keeps separate count events separate, in date order', () => {
+    const rolled = rollUpCounts([
+      lotCount(4, '2026-02-01T00:00:00Z', 'lot-a'),
+      lotCount(9, '2026-01-01T00:00:00Z', 'lot-a'),
+      lotCount(1, '2026-01-01T00:00:00Z', 'lot-b'),
+    ])
+    expect(rolled).toEqual([
+      { counted_at: '2026-01-01T00:00:00Z', quantity: 10 },
+      // lot-b was not recounted in February, so its 1 still counts toward the
+      // item's total -- 5, not lot-a's 4 on its own.
+      { counted_at: '2026-02-01T00:00:00Z', quantity: 5 },
+    ])
+  })
+
+  it('passes item-level counts through untouched', () => {
+    const rolled = rollUpCounts([
+      lotCount(30, '2026-01-10', null),
+      lotCount(20, '2026-02-10', null),
+    ])
+    expect(rolled).toEqual([
+      { counted_at: '2026-01-10', quantity: 30 },
+      { counted_at: '2026-02-10', quantity: 20 },
+    ])
+  })
+
+  it('takes the last item-level row when one timestamp has several', () => {
+    // Matches current_stock's (counted_at desc, created_at desc) tie-break.
+    const rolled = rollUpCounts([
+      lotCount(30, '2026-01-10', null),
+      lotCount(42, '2026-01-10', null),
+    ])
+    expect(rolled).toEqual([{ counted_at: '2026-01-10', quantity: 42 }])
+  })
+
+  it('prefers the per-lot sum over a legacy aggregate at the same timestamp', () => {
+    const rolled = rollUpCounts([
+      lotCount(99, '2026-01-10T00:00:00Z', null),     // legacy SUM row
+      lotCount(10, '2026-01-10T00:00:00Z', 'lot-a'),
+      lotCount(5,  '2026-01-10T00:00:00Z', 'lot-b'),
+    ])
+    expect(rolled).toEqual([{ counted_at: '2026-01-10T00:00:00Z', quantity: 15 }])
+  })
+
+  it('carries other lots forward when one lot is counted alone', () => {
+    // The ad-hoc form counts ONE lot per submission, so each row gets its own
+    // timestamp. Each point must still be the item's total, not that lot's.
+    const rolled = rollUpCounts([
+      lotCount(10, '2026-01-01T00:00:00Z', 'lot-a'),
+      lotCount(5,  '2026-01-01T00:00:00Z', 'lot-b'),
+      lotCount(4,  '2026-03-02T09:00:00Z', 'lot-a'),   // only lot-a recounted
+    ])
+    expect(rolled).toEqual([
+      { counted_at: '2026-01-01T00:00:00Z', quantity: 15 },
+      { counted_at: '2026-03-02T09:00:00Z', quantity: 9 },  // 4 + lot-b's 5
+    ])
+  })
+
+  it('does not let a single-lot recount look like a collapse in stock', () => {
+    // Regression: grouping by timestamp alone made this emit 4, implying the
+    // item fell 15 -> 4 and inventing a burn rate out of nothing.
+    const rolled = rollUpCounts([
+      lotCount(10, '2026-01-01T00:00:00Z', 'lot-a'),
+      lotCount(5,  '2026-01-01T00:00:00Z', 'lot-b'),
+      lotCount(4,  '2026-03-02T09:00:00Z', 'lot-a'),
+    ])
+    const burn = buildBurnRate(rolled, [], [])
+    expect(burn).toHaveLength(1)
+    expect(burn[0].consumed).toBe(6)   // 15 -> 9, not 15 -> 4
+  })
+
+  it('lets an item-level total supersede earlier per-lot knowledge', () => {
+    const rolled = rollUpCounts([
+      lotCount(10, '2026-01-01T00:00:00Z', 'lot-a'),
+      lotCount(5,  '2026-01-01T00:00:00Z', 'lot-b'),
+      lotCount(7,  '2026-02-01T00:00:00Z', null),      // legacy aggregate
+      lotCount(3,  '2026-03-01T00:00:00Z', 'lot-a'),   // map was cleared
+    ])
+    expect(rolled).toEqual([
+      { counted_at: '2026-01-01T00:00:00Z', quantity: 15 },
+      { counted_at: '2026-02-01T00:00:00Z', quantity: 7 },
+      { counted_at: '2026-03-01T00:00:00Z', quantity: 3 },
+    ])
+  })
+
+  it('orders unsorted input by timestamp before carrying values forward', () => {
+    const rolled = rollUpCounts([
+      lotCount(4,  '2026-03-02T09:00:00Z', 'lot-a'),
+      lotCount(5,  '2026-01-01T00:00:00Z', 'lot-b'),
+      lotCount(10, '2026-01-01T00:00:00Z', 'lot-a'),
+    ])
+    expect(rolled).toEqual([
+      { counted_at: '2026-01-01T00:00:00Z', quantity: 15 },
+      { counted_at: '2026-03-02T09:00:00Z', quantity: 9 },
+    ])
+  })
+
+  it('returns nothing for no counts', () => {
+    expect(rollUpCounts([])).toEqual([])
+  })
+
+  it('makes a lot-tracked burn rate match the equivalent item-level one', () => {
+    const perLot = rollUpCounts([
+      lotCount(60, '2026-01-01', 'lot-a'),
+      lotCount(40, '2026-01-01', 'lot-b'),
+      lotCount(30, '2026-01-31', 'lot-a'),
+      lotCount(20, '2026-01-31', 'lot-b'),
+    ])
+    const itemLevel = [count(100, '2026-01-01'), count(50, '2026-01-31')]
+    expect(buildBurnRate(perLot, [], [])).toEqual(buildBurnRate(itemLevel, [], []))
   })
 })

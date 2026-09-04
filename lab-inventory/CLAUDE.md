@@ -35,7 +35,11 @@ field belongs in reports.
 ## Data patterns
 - `tryWriteOrQueue` for all writes — handles offline queuing automatically
 - Lot-tracked items (`track_lots = true`): stock comes from `lots.quantity_remaining`, not `stock_counts`
-- Ad-hoc stock count form must block lot-tracked items (send to inventory session instead)
+- A `stock_counts` row is one counted thing: `lot_id` set = that lot, null =
+  item-level. Never treat raw count rows as item totals — roll them up first
+  (`rollUpCounts` in `src/lib/stockCalc.ts`)
+- Ad-hoc stock count form handles lot-tracked items by counting ONE lot at a
+  time (lot picker), writing a per-lot `stock_counts` row plus the lot balance
 - `current_stock` is a SQL view — never write to it directly
 
 ## Deployment

@@ -101,10 +101,12 @@ export function EquipmentDetail() {
           {canEditStatus && (
             <FunctionalStatusDialog equipmentId={equipment.id} isFunctional={equipment.is_functional} changedBy={profile?.full_name ?? null} />
           )}
-          <Link to={`/equipment/${equipment.id}/edit`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-            <Pencil className="h-3.5 w-3.5 mr-1" />
-            Modifier
-          </Link>
+          {canEditStatus && (
+            <Link to={`/equipment/${equipment.id}/edit`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+              <Pencil className="h-3.5 w-3.5 mr-1" />
+              {t('action.edit')}
+            </Link>
+          )}
           {admin && (
             equipment.retired_at
               ? <UnretireButton equipmentId={equipment.id} />

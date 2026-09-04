@@ -402,12 +402,22 @@ export function useDeleteDelivery() {
   })
 }
 
+// lot_id / session_id / counted_by_user_id are optional at the call site:
+// an ad-hoc count of a non-tracked item has none of them. is_legacy_aggregate
+// is never set by the app -- it marks pre-migration rows only.
+export type NewStockCount =
+  Omit<StockCount, 'id' | 'created_at' | 'lot_id' | 'session_id' | 'counted_by_user_id' | 'is_legacy_aggregate'>
+  & Partial<Pick<StockCount, 'lot_id' | 'session_id' | 'counted_by_user_id'>>
+
 export function useCreateStockCount() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (payload: Omit<StockCount, 'id' | 'created_at'>) =>
+    mutationFn: (payload: NewStockCount) =>
       tryWriteOrQueue<StockCount>('insert', 'stock_counts', payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['current_stock'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+      qc.invalidateQueries({ queryKey: ['stock_counts'] })
+    },
   })
 }
 
@@ -504,12 +514,14 @@ export function useUpdateEntry() {
       id,
       countedQuantity,
       enteredBy,
+      enteredByUserId,
       notes,
     }: {
       id: string
       sessionId: string
       countedQuantity: number | null
       enteredBy: string | null
+      enteredByUserId: string | null
       notes: string | null
     }): Promise<InventorySessionEntry> => {
       const { data, error } = await db
@@ -518,6 +530,7 @@ export function useUpdateEntry() {
           counted_quantity: countedQuantity,
           entered_at: new Date().toISOString(),
           entered_by: enteredBy,
+          entered_by_user_id: enteredByUserId,
           notes,
         })
         .eq('id', id)
@@ -526,7 +539,7 @@ export function useUpdateEntry() {
       if (error) throw error
       return data as InventorySessionEntry
     },
-    onSuccess: (_data: unknown, vars: { id: string; sessionId: string; countedQuantity: number | null; enteredBy: string | null; notes: string | null }) => {
+    onSuccess: (_data: unknown, vars: { id: string; sessionId: string; countedQuantity: number | null; enteredBy: string | null; enteredByUserId: string | null; notes: string | null }) => {
       qc.invalidateQueries({ queryKey: ['inventory_session_entries', vars.sessionId] })
     },
   })

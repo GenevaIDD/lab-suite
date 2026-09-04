@@ -154,18 +154,30 @@ create index is_item_type_idx on item_sources(item_type_id);
 -- Ad-hoc physical count; one record per item per lab per audit
 -- ============================================================
 
+-- One row per counted thing. lot_id is the dimension, not a second store:
+-- null means an item-level count (every non-tracked item, plus pre-migration
+-- aggregates). See supabase/add_stock_count_lot_provenance.sql.
 create table stock_counts (
-  id            uuid primary key default uuid_generate_v4(),
-  item_type_id  uuid not null references item_types(id) on delete cascade,
-  quantity      numeric(10, 2) not null,
-  counted_at    timestamptz not null default now(),
-  counted_by    text,
-  notes         text,
-  created_at    timestamptz not null default now()
+  id                  uuid primary key default uuid_generate_v4(),
+  item_type_id        uuid not null references item_types(id) on delete cascade,
+  lot_id              uuid,   -- fk added after lots is created, below
+  session_id          uuid,   -- fk added after inventory_sessions is created, below
+  quantity            numeric(10, 2) not null,
+  counted_at          timestamptz not null default now(),
+  counted_by          text,               -- declared name, free text
+  counted_by_user_id  uuid references profiles(id) on delete set null,
+  -- A SUM across an item's lots, written before per-lot counts existed. The
+  -- per-lot detail was never captured, so these can never be decomposed and
+  -- must not be offered for correction.
+  is_legacy_aggregate boolean not null default false,
+  notes               text,
+  created_at          timestamptz not null default now()
 );
 
 create index sc_item_type_idx on stock_counts(item_type_id);
 create index sc_counted_at_idx on stock_counts(counted_at desc);
+create index sc_lot_idx on stock_counts(lot_id);
+create index sc_session_idx on stock_counts(session_id);
 
 -- ============================================================
 -- Deliveries
@@ -248,13 +260,22 @@ create table inventory_session_entries (
   sort_order       int not null,
   counted_quantity numeric(10, 2),   -- null until entered
   entered_at       timestamptz,
-  entered_by       text,
+  entered_by       text,             -- declared name, free text
+  entered_by_user_id uuid references profiles(id) on delete set null,
   notes            text,
   created_at       timestamptz not null default now()
 );
 
 create index ise_session_idx on inventory_session_entries(session_id);
 create index ise_sort_idx    on inventory_session_entries(session_id, sort_order);
+
+-- stock_counts is declared above lots and inventory_sessions (it predates
+-- both), so its foreign keys are attached here, once every table exists.
+alter table stock_counts
+  add constraint stock_counts_lot_id_fkey
+    foreign key (lot_id) references lots(id) on delete set null,
+  add constraint stock_counts_session_id_fkey
+    foreign key (session_id) references inventory_sessions(id) on delete set null;
 
 
 -- ============================================================
@@ -263,59 +284,69 @@ create index ise_sort_idx    on inventory_session_entries(session_id, sort_order
 -- ============================================================
 
 create or replace view current_stock as
--- Non-tracked items: last count + deliveries since (original logic)
-with latest_count as (
+-- latest_item_count is item-level rows only: a per-lot row is one lot's
+-- quantity, never the item's. latest_count_date spans both kinds, because a
+-- tracked item's "last counted" is the newest count of any of its lots.
+-- Stage 2 will merge these two branches; see
+-- supabase/add_stock_count_lot_provenance.sql.
+with latest_item_count as (
   -- created_at breaks the tie when the same item is counted twice for the same
   -- date (a repeated session): the row entered last wins, deterministically.
   select distinct on (item_type_id)
     item_type_id,
-    quantity   as count_qty,
+    quantity as count_qty,
     counted_at
   from stock_counts
+  where lot_id is null
   order by item_type_id, counted_at desc, created_at desc
+),
+latest_count_date as (
+  select item_type_id, max(counted_at) as counted_at
+  from stock_counts
+  group by item_type_id
 ),
 deliveries_since as (
   select
     d.item_type_id,
     coalesce(sum(d.quantity), 0) as delivered_qty
   from deliveries d
-  left join latest_count lc on lc.item_type_id = d.item_type_id
+  left join latest_item_count lc on lc.item_type_id = d.item_type_id
   where lc.counted_at is null
      or d.received_at > lc.counted_at
   group by d.item_type_id
 ),
+-- Non-tracked items: last count + deliveries since.
 non_tracked as (
   select
-    it.id                                                        as item_type_id,
+    it.id                                                       as item_type_id,
     it.name,
     it.category,
     it.unit,
     it.min_threshold,
-    coalesce(lc.count_qty, 0) + coalesce(ds.delivered_qty, 0)  as quantity,
-    lc.counted_at                                                as last_counted_at
+    coalesce(lc.count_qty, 0) + coalesce(ds.delivered_qty, 0)   as quantity,
+    lc.counted_at                                               as last_counted_at
   from item_types it
-  left join latest_count lc    on lc.item_type_id = it.id
-  left join deliveries_since ds on ds.item_type_id = it.id
+  left join latest_item_count lc on lc.item_type_id = it.id
+  left join deliveries_since ds  on ds.item_type_id = it.id
   where it.track_lots = false
 ),
 -- Tracked items: sum of active (non-exhausted) lot quantities.
--- last_counted_at comes from the item-level stock_counts snapshot written when
--- a count is recorded; lots.created_at is only the fallback for lots that have
--- never been counted (see fix_last_counted_lot_items.sql).
+-- lots.created_at is only the fallback for lots never counted
+-- (see fix_last_counted_lot_items.sql).
 tracked as (
   select
-    it.id                                                    as item_type_id,
+    it.id                                                       as item_type_id,
     it.name,
     it.category,
     it.unit,
     it.min_threshold,
-    coalesce(sum(l.quantity_remaining), 0)                   as quantity,
-    coalesce(lc.counted_at, max(l.created_at)::timestamptz)  as last_counted_at
+    coalesce(sum(l.quantity_remaining), 0)                      as quantity,
+    coalesce(lcd.counted_at, max(l.created_at)::timestamptz)    as last_counted_at
   from item_types it
-  left join lots l          on l.item_type_id = it.id and l.exhausted_at is null
-  left join latest_count lc on lc.item_type_id = it.id
+  left join lots l                on l.item_type_id = it.id and l.exhausted_at is null
+  left join latest_count_date lcd on lcd.item_type_id = it.id
   where it.track_lots = true
-  group by it.id, it.name, it.category, it.unit, it.min_threshold, lc.counted_at
+  group by it.id, it.name, it.category, it.unit, it.min_threshold, lcd.counted_at
 )
 select * from non_tracked
 union all
@@ -376,6 +407,44 @@ create policy "admin+lab_manager write item_types" on item_types
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
   );
 
+-- tech + lab_team may correct item details (typos, wrong category/threshold).
+-- unit and track_lots stay admin+lab_manager -- see the guard_item_type_update
+-- trigger below and supabase/add_tech_item_rename.sql for why.
+create policy "tech+lab_team update item_types" on item_types
+  for update using (
+    exists (select 1 from profiles where id = auth.uid() and role in ('tech', 'lab_team'))
+  );
+
+create or replace function public.guard_item_type_update()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+declare
+  caller_role text;
+begin
+  select role into caller_role from profiles where id = auth.uid();
+
+  if caller_role in ('admin', 'lab_manager') then
+    return new;
+  end if;
+
+  if new.unit is distinct from old.unit then
+    raise exception 'Changing an item unit requires the admin or lab manager role'
+      using errcode = '42501';
+  end if;
+
+  if new.track_lots is distinct from old.track_lots then
+    raise exception 'Changing lot tracking requires the admin or lab manager role'
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger guard_item_type_update
+  before update on item_types
+  for each row execute function public.guard_item_type_update();
+
 create policy "admin+lab_manager write item_sources" on item_sources
   for all using (
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
@@ -419,8 +488,9 @@ create policy "admin+lab_manager+tech write entries" on inventory_session_entrie
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
 
--- lab_team: insert-only on item_types/item_sources/equipment/maintenance_schedules
--- (create new items & set up new equipment, but cannot edit/retire/delete);
+-- lab_team: insert-only on item_sources/equipment/maintenance_schedules
+-- (set up new equipment, but cannot edit/retire/delete). On item_types they
+-- may also update (see "tech+lab_team update item_types" above), but not delete;
 -- full read/write on sessions/entries/lots/stock_counts/deliveries/maintenance_logs
 -- needed to run guided inventory sessions, record deliveries and log maintenance.
 -- Ad-hoc stock counts are additionally blocked in the UI (see canManageStock).

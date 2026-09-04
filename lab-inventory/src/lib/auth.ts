@@ -105,6 +105,20 @@ export function canEnterData(profile: Profile | null): boolean {
   return profile?.role === 'admin' || profile?.role === 'lab_manager' || profile?.role === 'tech' || profile?.role === 'lab_team'
 }
 
+// Item details (name, category, threshold, storage, notes). Everyone who
+// enters data may correct a typo on an item -- see
+// supabase/add_tech_item_rename.sql.
+export function canEditItem(profile: Profile | null): boolean {
+  return canEnterData(profile)
+}
+
+// The two item fields that rewrite the meaning of historical data:
+// `unit` reinterprets every past quantity, `track_lots` moves where stock is
+// read from. Enforced in the DB by the guard_item_type_update trigger.
+export function canEditItemUnits(profile: Profile | null): boolean {
+  return canWrite(profile)
+}
+
 export function canManageStock(profile: Profile | null): boolean {
   return profile?.role === 'admin' || profile?.role === 'lab_manager' || profile?.role === 'tech'
 }

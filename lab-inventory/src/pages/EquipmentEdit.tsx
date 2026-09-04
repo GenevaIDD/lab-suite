@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PhotoUpload } from '@/components/equipment/PhotoUpload'
 import { useEquipment } from '@/lib/queries'
 import { useUpdateEquipment } from '@/lib/mutations'
-import { useAuth, isAdmin } from '@/lib/auth'
+import { useAuth, isAdmin, canWrite } from '@/lib/auth'
+import { useLang } from '@/lib/i18n'
 import { CURRENCIES } from '@/types/database'
 import type { Currency } from '@/types/database'
 import { toast } from 'sonner'
@@ -22,6 +23,7 @@ export function EquipmentEdit() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { t } = useLang()
   const admin = isAdmin(profile)
   const { data: equipment, isLoading } = useEquipment(id)
   const updateEquipment = useUpdateEquipment()
@@ -88,6 +90,18 @@ export function EquipmentEdit() {
     } catch (err) {
       toast.error(`Erreur : ${(err as Error).message}`)
     }
+  }
+
+  if (!canWrite(profile)) {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        <Link to={`/equipment/${id}`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-fit')}>
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Retour à l'équipement
+        </Link>
+        <p className="text-sm text-muted-foreground">{t('equip.edit.no.access')}</p>
+      </div>
+    )
   }
 
   if (isLoading) {
