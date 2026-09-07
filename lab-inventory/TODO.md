@@ -79,7 +79,8 @@ the other, and it drifted twice in a week.** Current state (2026-09-07):
     add_tech_item_rename.sql              test + prod
     add_stock_count_lot_provenance.sql    test + prod
     add_stock_count_correction.sql        test + prod
-    (grants fix, appended to the above)   pending on BOTH
+    (grants fix, appended to the above)   test + prod
+    add_stock_count_delete.sql            neither -- not run yet
 
 Run every migration on test FIRST, then production. Working the other way
 round leaves nowhere to validate the next change.
@@ -240,10 +241,35 @@ same privileges for an identically-created table. Probe with an anon REST
 call -- `permission denied for table X` proves the table exists but is
 ungranted, which is a different failure from a missing table.
 
-DELETE is deliberately not granted. The trigger already handles it, so the
-policy can be added without reworking history, but removing a count changes
-which count is latest and has to unwind the lot balance -- a separate
-problem.
+### DONE 2026-09-07 -- deleting a count (v0.22.0)
+
+Deferred from the above, then requested straight away: a duplicate entry is a
+row that should never have existed, and correcting it would leave an invented
+number in the record.
+
+`supabase/add_stock_count_delete.sql` -- DELETE policy for admin +
+lab_manager, and `delete_stock_count(p_count_id, p_reason)`. The history
+trigger already fired on DELETE, so history needed no change.
+
+The lot unwind, which is why this was deferred, resolves cleanly:
+
+    next-newest count for that lot  ->  its quantity
+    no count left for that lot      ->  lots.quantity_initial
+
+`quantity_initial` is the total ever delivered into that lot identity
+(`useUpsertLot` adds to it on each delivery), so the fallback is not a guess
+-- it is exactly where a never-counted lot already sits, and what
+current_stock would show for one. It assumes nothing was consumed since
+delivery, which is unknowable without a count and is the assumption the
+system already makes for uncounted lots.
+
+Deleted counts are listed under the count history on ItemDetail (date,
+quantity, who, reason). Without that the row simply vanishes and the audit
+record in `stock_count_history` is invisible, which would defeat the point of
+keeping it.
+
+Not yet run anywhere. `supabase/test_delete_stock_count.sql` covers the three
+paths (item-level, lot with an earlier count, lot with none left).
 
 Left behind on the test project: real corrections on "Abaisse-langue"
 (now 7 and 2) plus two history rows.

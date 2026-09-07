@@ -461,6 +461,41 @@ export function useCorrectStockCount() {
   })
 }
 
+// Delete a count -- for a duplicate, where correcting would leave an invented
+// number in the record. Deleting a per-lot count rebuilds that lot's balance
+// from the next-newest count, or the delivered quantity if none is left.
+export function useDeleteStockCount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ countId, reason }: { countId: string; reason?: string | null }): Promise<DeletionResult> => {
+      const { data, error } = await db.rpc('delete_stock_count', {
+        p_count_id: countId,
+        p_reason:   reason ?? null,
+      })
+      if (error) throw error
+      return data as DeletionResult
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['stock_counts'] })
+      qc.invalidateQueries({ queryKey: ['stock_count_history'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+      qc.invalidateQueries({ queryKey: ['lots'] })
+    },
+  })
+}
+
+export interface DeletionResult {
+  deleted: boolean
+  reason?: 'count_not_found' | 'legacy_aggregate'
+  deleted_quantity?: number
+  item_type_id?: string
+  lot_updated?: boolean
+  // What the lot balance was rebuilt to, and whether that came from the
+  // next-newest count or, with none left, the delivered quantity.
+  restored_to?: number
+  restored_from?: 'count' | 'delivery'
+}
+
 export interface CorrectionResult {
   corrected: boolean
   reason?: 'invalid_quantity' | 'count_not_found' | 'legacy_aggregate'

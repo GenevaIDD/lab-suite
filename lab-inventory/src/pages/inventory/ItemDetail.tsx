@@ -73,6 +73,14 @@ export function ItemDetail() {
     return new Set([...newest.values()].map(c => c.id))
   }, [counts])
 
+  // Deleted counts leave the table entirely, so without this the audit record
+  // exists in stock_count_history but nothing in the UI admits the row was
+  // ever there -- which would undercut the point of keeping history at all.
+  const deletedCounts = useMemo(
+    () => countHistory.filter(h => h.operation === 'delete'),
+    [countHistory],
+  )
+
   const historyByCount = useMemo(() => {
     const m = new Map<string, typeof countHistory>()
     for (const h of countHistory) {
@@ -404,6 +412,22 @@ export function ItemDetail() {
                 </TableBody>
               </Table>
             )}
+          {deletedCounts.length > 0 && (
+            <div className="border-t px-4 py-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                {deletedCounts.length} {deletedCounts.length === 1
+                  ? t('count.deleted.one')
+                  : t('count.deleted.many')}
+              </p>
+              {deletedCounts.map(h => (
+                <p key={h.id} className="text-xs text-muted-foreground">
+                  {fmt(h.prev_counted_at)} · <span className="tabular-nums">{h.prev_quantity} {item.unit}</span>
+                  {h.prev_counted_by ? ` · ${h.prev_counted_by}` : ''}
+                  {h.reason ? ` — ${h.reason}` : ''}
+                </p>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

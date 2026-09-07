@@ -465,6 +465,14 @@ create policy "admin+lab_manager update stock_counts" on stock_counts
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
   );
 
+-- Deleting a count is for duplicates -- a row that should never have existed.
+-- Restricted to item-level counts in delete_stock_count(); see
+-- supabase/add_stock_count_delete.sql for why per-lot deletion waits on 3c.
+create policy "admin+lab_manager delete stock_counts" on stock_counts
+  for delete using (
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+  );
+
 create policy "admin+lab_manager+tech write deliveries" on deliveries
   for insert with check (
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
