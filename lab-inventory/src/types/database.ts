@@ -166,6 +166,26 @@ export interface StockCount {
   lot?: InventoryLot
 }
 
+// A stock count as it was BEFORE a correction. Written only by the
+// record_stock_count_history trigger; see
+// supabase/add_stock_count_correction.sql. No FK to stock_counts -- history
+// outlives the row it describes.
+export interface StockCountHistory {
+  id: string
+  stock_count_id: string
+  item_type_id: string
+  operation: 'update' | 'delete'
+  prev_quantity: number
+  prev_counted_at: string
+  prev_counted_by: string | null
+  prev_counted_by_user_id: string | null
+  prev_lot_id: string | null
+  prev_notes: string | null
+  replaced_at: string
+  replaced_by: string | null
+  reason: string | null
+}
+
 export interface Delivery {
   id: string
   item_type_id: string

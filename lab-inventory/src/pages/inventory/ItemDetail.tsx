@@ -12,17 +12,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { StockChart, BurnChart } from '@/components/ui/MiniChart'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useItemType, useItemCounts, useItemDeliveries, useItemSources, useCurrentStock, useItemLots, useItemDisposals, useItemObservations } from '@/lib/queries'
+import { useItemType, useItemCounts, useItemCountHistory, useItemDeliveries, useItemSources, useCurrentStock, useItemLots, useItemDisposals, useItemObservations } from '@/lib/queries'
 import { useUpsertLot, useDiscardLot, useAddItemObservation, useDeleteItemObservation } from '@/lib/mutations'
 import { buildTimeline, buildBurnRate, buildAnomalies, rollUpCounts } from '@/lib/stockCalc'
+import { CountActions } from '@/components/inventory/CountActions'
 import { getExpiringLots } from '@/lib/lotCalc'
-import { useAuth, isAdmin, canEditItem, canManageStock } from '@/lib/auth'
+import { useAuth, isAdmin, canEditItem, canWrite, canManageStock } from '@/lib/auth'
 import { useLang } from '@/lib/i18n'
 import { storageLabel } from '@/lib/storage'
 import { ENABLE_MANUAL_LOT_ENTRY } from '@/lib/flags'
 import { cn, qtyStep } from '@/lib/utils'
 import { toast } from 'sonner'
-import type { InventoryLot, DisposalReason, ItemObservation } from '@/types/database'
+import type { InventoryLot, DisposalReason, ItemObservation, StockCount } from '@/types/database'
 
 function fmt(d: string) { return format(parseISO(d), 'd MMM yyyy') }
 
@@ -45,10 +46,43 @@ export function ItemDetail() {
   const { data: activeLots = [] } = useItemLots(id)
   const { data: allLots = [] }    = useItemLots(id, true)  // including exhausted
   const { data: observations = [] } = useItemObservations(id)
+  const { data: countHistory = [] } = useItemCountHistory(id)
 
   const currentQty   = useMemo(() => stockRows.find(r => r.item_type_id === id)?.quantity ?? 0, [stockRows, id])
   const lastCounted  = useMemo(() => stockRows.find(r => r.item_type_id === id)?.last_counted_at, [stockRows, id])
   const isLow        = item ? currentQty < item.min_threshold : false
+  const canCorrect = canWrite(profile)
+
+  // A count is "latest" within its own series -- the same lot, or the item
+  // itself. Correcting the latest moves displayed stock; correcting an older
+  // one does not. correct_stock_count recomputes this server-side; this
+  // drives the warning shown before saving.
+  const latestCountIds = useMemo(() => {
+    const newest = new Map<string, StockCount>()
+    for (const c of counts) {
+      const key = c.lot_id ?? 'item'
+      const held = newest.get(key)
+      // (counted_at, created_at) is how current_stock orders, so same-day
+      // sessions resolve the same way here as they do in the view.
+      if (!held
+        || c.counted_at > held.counted_at
+        || (c.counted_at === held.counted_at && c.created_at > held.created_at)) {
+        newest.set(key, c)
+      }
+    }
+    return new Set([...newest.values()].map(c => c.id))
+  }, [counts])
+
+  const historyByCount = useMemo(() => {
+    const m = new Map<string, typeof countHistory>()
+    for (const h of countHistory) {
+      const list = m.get(h.stock_count_id)
+      if (list) list.push(h)
+      else m.set(h.stock_count_id, [h])
+    }
+    return m
+  }, [countHistory])
+
   // The charts want one point per count event; the history table below shows
   // the raw per-lot rows. See rollUpCounts.
   const countPoints  = useMemo(() => rollUpCounts(counts), [counts])
@@ -325,11 +359,13 @@ export function ItemDetail() {
                     <TableHead className="text-right">{t('label.quantity')}</TableHead>
                     <TableHead>{t('item.col.counted.by')}</TableHead>
                     <TableHead>{t('label.notes')}</TableHead>
+                    {canCorrect && <TableHead className="w-10" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {[...counts].reverse().map(c => {
                     const countedLot = c.lot_id ? allLots.find(l => l.id === c.lot_id) : undefined
+                    const amended = historyByCount.get(c.id)
                     return (
                       <TableRow key={c.id}>
                         <TableCell>{fmt(c.counted_at)}</TableCell>
@@ -340,9 +376,28 @@ export function ItemDetail() {
                               ? <span title={t('item.count.aggregate.hint')}>{t('item.count.aggregate')}</span>
                               : '—'}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">{c.quantity}</TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">
+                          {c.quantity}
+                          {amended && (
+                            <span
+                              className="ml-1.5 text-[10px] font-normal text-muted-foreground"
+                              title={`${t('count.amended.was')} ${amended[amended.length - 1].prev_quantity}`}
+                            >
+                              ({t('count.amended')})
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{c.counted_by ?? '—'}</TableCell>
                         <TableCell className="text-muted-foreground">{c.notes ?? '—'}</TableCell>
+                        {canCorrect && (
+                          <TableCell className="text-right">
+                            <CountActions
+                              count={c}
+                              unit={item.unit}
+                              isLatest={latestCountIds.has(c.id)}
+                            />
+                          </TableCell>
+                        )}
                       </TableRow>
                     )
                   })}

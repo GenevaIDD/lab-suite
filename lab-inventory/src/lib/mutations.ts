@@ -421,6 +421,55 @@ export function useCreateStockCount() {
   })
 }
 
+// Correct a recorded count. Goes through the correct_stock_count RPC rather
+// than a plain update: for a lot-tracked item the stock_counts row and
+// lots.quantity_remaining must agree, and only the newest count for a lot
+// may move that balance. The RPC reports whether displayed stock changed or
+// only history did. Not queued offline -- a correction needs its result.
+export function useCorrectStockCount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      countId,
+      quantity,
+      countedAt,
+      notes,
+      reason,
+    }: {
+      countId: string
+      quantity: number
+      countedAt?: string | null
+      notes?: string | null
+      reason?: string | null
+    }): Promise<CorrectionResult> => {
+      const { data, error } = await db.rpc('correct_stock_count', {
+        p_count_id:   countId,
+        p_quantity:   quantity,
+        p_counted_at: countedAt ?? null,
+        p_notes:      notes ?? null,
+        p_reason:     reason ?? null,
+      })
+      if (error) throw error
+      return data as CorrectionResult
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['stock_counts'] })
+      qc.invalidateQueries({ queryKey: ['stock_count_history'] })
+      qc.invalidateQueries({ queryKey: ['current_stock'] })
+      qc.invalidateQueries({ queryKey: ['lots'] })
+    },
+  })
+}
+
+export interface CorrectionResult {
+  corrected: boolean
+  reason?: 'invalid_quantity' | 'count_not_found' | 'legacy_aggregate'
+  was_latest?: boolean
+  lot_updated?: boolean
+  previous_quantity?: number
+  stock_changed?: boolean
+}
+
 // ============================================================
 // Inventory Sessions
 // ============================================================

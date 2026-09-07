@@ -45,7 +45,9 @@ field belongs in reports.
 ## Deployment
 - `npx vercel --prod` (or `npm run deploy:prod`) from `lab-inventory/` — GitHub auto-deploy is not connected
 - Bump `version` in `package.json` with each meaningful release
-- Run `npx tsc --noEmit && npx vitest run` before every commit
+- Run `npm run build && npx vitest run` before every commit. Do NOT rely on
+  `npx tsc --noEmit`: it resolves to the root project-references tsconfig and
+  silently checks nothing. `npm run build` runs `tsc -b`, which does.
 
 ## Keep-alive
 - `api/health.ts` + a daily Vercel Cron (`vercel.json` → `crons`) make a

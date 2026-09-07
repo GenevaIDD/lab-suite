@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal, EquipmentStatusLog, EquipmentAccessory, ItemObservation } from '@/types/database'
+import type { Equipment, ItemType, MaintenanceSchedule, MaintenanceLog, Delivery, ItemSource, StockCount, InventorySession, InventorySessionEntry, EquipmentDocument, InventoryLot, EquipmentObservation, Profile, Disposal, EquipmentStatusLog, EquipmentAccessory, ItemObservation, StockCountHistory } from '@/types/database'
 
 export function useProfiles() {
   return useQuery({
@@ -119,6 +119,24 @@ export function useDeliveryLots(deliveryId: string | undefined, enabled = true) 
         .eq('delivery_id', deliveryId!)
       if (error) throw error
       return (data ?? []) as InventoryLot[]
+    },
+  })
+}
+
+// Previous values of any corrected count for this item, newest first.
+// Used to mark a row as amended and show what it was before.
+export function useItemCountHistory(itemTypeId: string | undefined) {
+  return useQuery({
+    queryKey: ['stock_count_history', itemTypeId],
+    enabled: !!itemTypeId,
+    queryFn: async (): Promise<StockCountHistory[]> => {
+      const { data, error } = await db
+        .from('stock_count_history')
+        .select('*')
+        .eq('item_type_id', itemTypeId!)
+        .order('replaced_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as StockCountHistory[]
     },
   })
 }

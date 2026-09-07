@@ -455,6 +455,16 @@ create policy "admin+lab_manager+tech write stock_counts" on stock_counts
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
   );
 
+-- admin+lab_manager can correct a recorded count. Techs and lab_team record
+-- counts but do not rewrite them. Every change is captured by the
+-- record_stock_count_history trigger below.
+-- See supabase/add_stock_count_correction.sql (which also holds the
+-- correct_stock_count RPC, kept there like complete_inventory_session).
+create policy "admin+lab_manager update stock_counts" on stock_counts
+  for update using (
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager'))
+  );
+
 create policy "admin+lab_manager+tech write deliveries" on deliveries
   for insert with check (
     exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech'))
@@ -698,6 +708,71 @@ create policy "authenticated read disposals" on disposals for select using (auth
 create policy "write disposals" on disposals for insert with check (
   exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'lab_manager', 'tech', 'lab_team'))
 );
+
+-- ============================================================
+-- Stock Count History
+-- Previous values of any corrected or deleted stock count.
+-- No FK to stock_counts: history must outlive the row it describes, or a
+-- delete would erase the evidence of itself.
+-- ============================================================
+
+create table stock_count_history (
+  id                  uuid primary key default uuid_generate_v4(),
+  stock_count_id      uuid not null,
+  item_type_id        uuid not null,
+  operation           text not null check (operation in ('update', 'delete')),
+  prev_quantity           numeric(10, 2) not null,
+  prev_counted_at         timestamptz not null,
+  prev_counted_by         text,
+  prev_counted_by_user_id uuid,
+  prev_lot_id             uuid,
+  prev_notes              text,
+  replaced_at         timestamptz not null default now(),
+  replaced_by         uuid references profiles(id) on delete set null,
+  reason              text
+);
+
+create index sch_count_idx on stock_count_history(stock_count_id);
+create index sch_item_idx  on stock_count_history(item_type_id);
+create index sch_when_idx  on stock_count_history(replaced_at desc);
+
+alter table stock_count_history enable row level security;
+create policy "authenticated read stock_count_history" on stock_count_history
+  for select using (auth.role() = 'authenticated');
+-- No write policy on purpose: only the SECURITY DEFINER trigger below writes
+-- here, so nothing a client sends can add, alter or remove a history row.
+
+create or replace function public.record_stock_count_history()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+begin
+  if old.is_legacy_aggregate then
+    raise exception 'This is a total across lots recorded before per-lot counting; correct the lot instead'
+      using errcode = '42501';
+  end if;
+
+  insert into stock_count_history (
+    stock_count_id, item_type_id, operation,
+    prev_quantity, prev_counted_at, prev_counted_by,
+    prev_counted_by_user_id, prev_lot_id, prev_notes,
+    replaced_by, reason
+  ) values (
+    old.id, old.item_type_id, lower(tg_op),
+    old.quantity, old.counted_at, old.counted_by,
+    old.counted_by_user_id, old.lot_id, old.notes,
+    auth.uid(), nullif(current_setting('app.correction_reason', true), '')
+  );
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger record_stock_count_history
+  before update or delete on stock_counts
+  for each row execute function public.record_stock_count_history();
 
 -- ============================================================
 -- Storage bucket for equipment photos
