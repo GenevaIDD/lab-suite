@@ -774,6 +774,12 @@ create trigger record_stock_count_history
   before update or delete on stock_counts
   for each row execute function public.record_stock_count_history();
 
+-- RLS is only consulted after the GRANT lets the role touch the table.
+-- No write grants: the SECURITY DEFINER trigger writes as the owner.
+grant select on stock_count_history to authenticated;
+grant select on stock_count_history to anon;
+grant all privileges on stock_count_history to service_role;
+
 -- ============================================================
 -- Storage bucket for equipment photos
 -- ============================================================

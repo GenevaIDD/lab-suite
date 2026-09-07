@@ -215,4 +215,17 @@ $$;
 
 grant execute on function public.correct_stock_count(uuid, numeric, timestamptz, text, text) to authenticated;
 
+-- Table privileges. RLS is only consulted once the GRANT lets the role touch
+-- the table at all, so without these the history table is unreadable and the
+-- "amended" marker silently disappears (the query errors, the hook defaults
+-- to []). Every other new-table migration here does this -- see
+-- add_disposals_table.sql. Projects differ in their default privileges, so
+-- do not rely on them: this was missing and only showed up on production.
+--
+-- No insert/update/delete for anyone: the SECURITY DEFINER trigger writes as
+-- the owner, so nothing else ever needs to.
+grant select on stock_count_history to authenticated;
+grant select on stock_count_history to anon;
+grant all privileges on stock_count_history to service_role;
+
 notify pgrst, 'reload schema';

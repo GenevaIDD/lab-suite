@@ -78,7 +78,8 @@ the other, and it drifted twice in a week.** Current state (2026-09-07):
 
     add_tech_item_rename.sql              test + prod
     add_stock_count_lot_provenance.sql    test + prod
-    add_stock_count_correction.sql        test only -- prod pending
+    add_stock_count_correction.sql        test + prod
+    (grants fix, appended to the above)   pending on BOTH
 
 Run every migration on test FIRST, then production. Working the other way
 round leaves nowhere to validate the next change.
@@ -221,6 +222,23 @@ while "Modifier" and "Comptage rapide" remain.
 
 Still untested: a tech calling `correct_stock_count` directly, bypassing the
 UI. Covered by the UPDATE policy, not exercised.
+
+**Missed on the first pass:** the migration granted only `execute` on the
+function, never table privileges on `stock_count_history`. Every sibling
+migration here does that (see `add_disposals_table.sql`) -- RLS is only
+consulted once a GRANT lets the role touch the table at all. It went
+unnoticed because the test project's default privileges are permissive
+enough to cover it and production's are not, so the same SQL produced
+different privileges on the two databases. Symptom on production: the
+`(corrigé)` marker silently vanishes -- corrections still apply, because the
+SECURITY DEFINER trigger writes as the owner, but reading history fails and
+`useItemCountHistory` defaults to `[]`. Grants added to the migration
+2026-09-07; re-run it on both projects.
+
+Worth remembering generally: do not assume two Supabase projects grant the
+same privileges for an identically-created table. Probe with an anon REST
+call -- `permission denied for table X` proves the table exists but is
+ungranted, which is a different failure from a missing table.
 
 DELETE is deliberately not granted. The trigger already handles it, so the
 policy can be added without reworking history, but removing a count changes
