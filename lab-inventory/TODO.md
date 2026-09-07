@@ -85,22 +85,27 @@ the other, and it drifted twice in a week.** Current state (2026-09-07):
 Run every migration on test FIRST, then production. Working the other way
 round leaves nowhere to validate the next change.
 
-**This list is hand-maintained and has been wrong before.** Do not trust it;
-check. An anon REST call distinguishes the three states without any
-credentials beyond the anon key already in `.env`:
+**This list is hand-maintained and has been wrong before.** Do not trust it:
 
-    # table present?  [] = yes, "permission denied for table X" = present
-    # but ungranted, PGRST205/404 = absent
-    curl -s "$URL/rest/v1/<table>?select=id&limit=1" -H "apikey: $ANON"
+    npm run check:migrations
 
-    # function present?  PGRST202 = absent; anything else = present
-    curl -s -X POST "$URL/rest/v1/rpc/<fn>" -H "apikey: $ANON" \
-      -H "Content-Type: application/json" -d '{}'
+`scripts/check-migrations.mjs` asks both databases directly, using only the
+anon key already in `.env` / `.env.local`. Reads only -- RPC probes pass an
+all-zeros uuid, so a write-capable function returns not-found long before it
+reaches any write. Exits 1 on drift, so it can gate a deploy.
 
-"permission denied" is a DIFFERENT answer from "absent", and the difference
-matters: it is exactly how the missing grants below were found. Probe RPCs
-with an all-zeros uuid so a write-capable function returns not-found before
-reaching any write.
+Add a row to its MIGRATIONS array whenever you add a migration; the table
+above is the human summary, the script is the truth.
+
+What it cannot see, and says so rather than passing quietly:
+  - **policies and triggers.** `add_tech_item_rename.sql` is entirely policy
+    and trigger, so it shows "not probeable". Same for the DELETE policy.
+  - **the `authenticated` role.** The app never runs as anon, and the anon
+    key cannot test authenticated. An anon-grant difference is printed as a
+    note, not a failure -- `inventory_session_entries` is ungranted to anon
+    on production and the app is fine. But on a NEW table it is worth
+    checking: nothing granted to anyone is what silently broke
+    `stock_count_history`.
 
 Project refs, because the app calls the test project "STAGING" (via
 `VITE_APP_ENV` in `.env.local`) while this file calls it the test project --

@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "deploy:prod": "vercel --prod",
-    "deploy:staging": "bash scripts/deploy-staging.sh"
+    "deploy:staging": "bash scripts/deploy-staging.sh",
+    "check:migrations": "node scripts/check-migrations.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
