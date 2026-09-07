@@ -360,6 +360,33 @@ describe('rollUpCounts', () => {
     expect(rollUpCounts([])).toEqual([])
   })
 
+  it('breaks a same-timestamp tie on created_at, like current_stock does', () => {
+    // Several sessions completing on one target_date is normal in this lab
+    // (5 on 2026-08-12 in the real data), and they share a counted_at.
+    const rolled = rollUpCounts([
+      { quantity: 30, counted_at: '2026-08-12T00:00:00Z', lot_id: null, created_at: '2026-08-12T09:00:00Z' },
+      { quantity: 42, counted_at: '2026-08-12T00:00:00Z', lot_id: null, created_at: '2026-08-12T17:00:00Z' },
+    ])
+    expect(rolled).toEqual([{ counted_at: '2026-08-12T00:00:00Z', quantity: 42 }])
+  })
+
+  it('does not depend on the order rows arrive in', () => {
+    const rows = [
+      { quantity: 42, counted_at: '2026-08-12T00:00:00Z', lot_id: null, created_at: '2026-08-12T17:00:00Z' },
+      { quantity: 30, counted_at: '2026-08-12T00:00:00Z', lot_id: null, created_at: '2026-08-12T09:00:00Z' },
+    ]
+    expect(rollUpCounts(rows)).toEqual(rollUpCounts([...rows].reverse()))
+  })
+
+  it('takes each lot\'s newest value when two same-day sessions counted it', () => {
+    const rolled = rollUpCounts([
+      { quantity: 10, counted_at: '2026-08-12T00:00:00Z', lot_id: 'lot-a', created_at: '2026-08-12T09:00:00Z' },
+      { quantity: 6,  counted_at: '2026-08-12T00:00:00Z', lot_id: 'lot-a', created_at: '2026-08-12T17:00:00Z' },
+      { quantity: 5,  counted_at: '2026-08-12T00:00:00Z', lot_id: 'lot-b', created_at: '2026-08-12T09:30:00Z' },
+    ])
+    expect(rolled).toEqual([{ counted_at: '2026-08-12T00:00:00Z', quantity: 11 }])  // 6 + 5, not 10 + 5
+  })
+
   it('makes a lot-tracked burn rate match the equivalent item-level one', () => {
     const perLot = rollUpCounts([
       lotCount(60, '2026-01-01', 'lot-a'),

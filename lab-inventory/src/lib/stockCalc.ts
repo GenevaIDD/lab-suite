@@ -92,10 +92,17 @@ export function disposalsBetween(
  * stays in the map at its last counted value until the next count touches it.
  * Disposals reach the burn rate separately, through disposalsBetween.
  */
-export function rollUpCounts<T extends CountPoint & { lot_id?: string | null }>(
-  counts: T[],
-): CountPoint[] {
-  const ordered = [...counts].sort((a, b) => a.counted_at.localeCompare(b.counted_at))
+export function rollUpCounts<
+  T extends CountPoint & { lot_id?: string | null; created_at?: string },
+>(counts: T[]): CountPoint[] {
+  // Several sessions completing on one target_date is normal here (a campaign
+  // split across rooms, or a repeated session), and they all write the same
+  // midnight-UTC counted_at. created_at breaks the tie, matching how
+  // current_stock's latest_item_count orders: the row entered last wins.
+  const ordered = [...counts].sort((a, b) =>
+    a.counted_at.localeCompare(b.counted_at)
+    || (a.created_at ?? '').localeCompare(b.created_at ?? ''),
+  )
 
   const groups: { counted_at: string; rows: T[] }[] = []
   for (const c of ordered) {
