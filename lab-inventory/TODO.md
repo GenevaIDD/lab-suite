@@ -71,12 +71,28 @@ For lot-tracked items that leaves a detectable duplicate row. For non-tracked
 items a double-submit just adds the delivery quantity twice with no trace, and
 cannot be audited retrospectively. Fixing the write path is the only remedy.
 
-## 3. Test project parity — DONE 2026-09-03, **now stale**
+## 3. Test project parity — DONE 2026-09-03, resynced 2026-09-07
 
-**2026-09-07:** the test project is BEHIND production again. Both
-`add_tech_item_rename.sql` and `add_stock_count_lot_provenance.sql` were run
-on production only. Run them on test before starting 3b's count correction,
-or there is nowhere safe to validate it.
+**Schema parity drifts every time a migration is run on one project and not
+the other, and it drifted twice in a week.** Current state (2026-09-07):
+
+    add_tech_item_rename.sql              test + prod
+    add_stock_count_lot_provenance.sql    test + prod
+    add_stock_count_correction.sql        test only -- prod pending
+
+Run every migration on test FIRST, then production. Working the other way
+round leaves nowhere to validate the next change.
+
+Project refs, because the app calls the test project "STAGING" (via
+`VITE_APP_ENV` in `.env.local`) while this file calls it the test project --
+same database, and the names have caused confusion:
+
+    test / "staging"   uizvyziucufrkdxinzda   <- .env.local, npm run dev
+    production         eviwieggwuweqezkrtli   <- .env
+
+`docs/STAGING.md` describes a separate staging Supabase + Vercel pair that
+was never stood up (`.vercel-staging.env` does not exist). Local dev against
+the test project is the working path.
 
 The test project (`uizvyziucufrkdxinzda`, eu-west-1) now holds a copy of
 production's public schema data:
@@ -165,44 +181,74 @@ Read-only checks: `supabase/verify_stock_count_provenance.sql`.
 Legacy aggregate rows cannot be decomposed -- the per-lot detail was never
 captured -- so history is clean going forward, not backwards.
 
-### TODO -- correcting a recorded count
+### DONE 2026-09-07 -- correcting a recorded count
 
-Not started. `stock_counts` is still INSERT-only (schema.sql), and the count
-history on ItemDetail is read-only.
+`stock_counts` had been INSERT-only since the schema was written, so a count
+keyed as 70 instead of 7 could never be fixed. Append-only was protecting
+auditability; a history table plus triggers keeps that while giving normal
+edit UX -- the trade the delivery update policies already make.
 
-Decisions taken:
-  - Who: admin + lab_manager, matching the delivery policy in
-    `components/inventory/DeliveryActions.tsx`.
-  - History: edits in place, with a BEFORE UPDATE/DELETE trigger copying the
-    previous row into a history table (who, when). Keeps auditability while
-    giving normal edit UX.
-  - Lot-tracked items are corrected **per lot**, never through the item-level
-    aggregate. Decided 2026-09-05; stage 1 exists to make that possible.
+`supabase/add_stock_count_correction.sql`:
+  - `stock_count_history` -- previous values, who replaced them, when, why.
+    No FK to stock_counts and item_type_id denormalised, so history outlives
+    the row it describes; otherwise a delete erases the evidence of itself.
+  - `record_stock_count_history()` BEFORE UPDATE/DELETE. SECURITY DEFINER, so
+    the audit write cannot fail on RLS or be bypassed by the person doing the
+    correcting. The history table has NO write policy at all -- only the
+    trigger writes there.
+  - `correct_stock_count()` -- transactional. For a lot-tracked item the
+    count row and `lots.quantity_remaining` must agree, and only the NEWEST
+    count for a lot may move that balance. Returns `stock_changed` so the UI
+    can say which happened.
+  - UPDATE policy for admin + lab_manager.
 
-Work:
-1. `stock_count_history` table: source row id, every mutable field's previous
-   value, replaced_at, replaced_by.
-2. BEFORE UPDATE and BEFORE DELETE triggers writing OLD into it. Triggers
-   rather than application code, so nothing can bypass them.
-3. UPDATE and DELETE policies on stock_counts for admin + lab_manager.
-4. A transactional RPC for the correction itself. Correcting a lot's count is
-   two writes that must agree -- the `stock_counts` row and
-   `lots.quantity_remaining` -- which is the same problem audit finding 2
-   applied an RPC to. Stage 2 (below) would remove the second write.
-5. UI: edit affordance on the count history table, showing that a row was
-   amended and what it was before.
-6. i18n keys, FR and EN.
+The reason travels from RPC to trigger through a transaction-local setting
+(`set_config('app.correction_reason', ..., true)`), because it describes the
+correction, not the row being replaced. Verified working.
 
-Watch out:
-  - Correcting the LATEST count changes displayed stock immediately;
-    correcting an older one changes only history and the burn rate. The UI
-    must make clear which is happening, or people will "fix" a number and
-    see nothing change.
-  - Legacy aggregate rows (`is_legacy_aggregate`) must never be offered for
-    correction: they summarise lots that were never individually recorded.
-  - Session entries stay a historical record. A completed session's entries
-    already produced stock_counts rows; the correction belongs on those rows,
-    not on the entry. This settles the open question in the original 3b.
+UI: `components/inventory/CountActions.tsx`, on the item's count history.
+The dialog states the consequence BEFORE saving -- amber for the newest
+count ("will change current stock", with a `4 -> 7` preview), grey for an
+older one ("history and burn rate only"). Without that, people fix a number,
+see nothing change, and fix it again. Reason is optional.
+
+Verified on test 2026-09-07: RPC via `supabase/test_correct_stock_count.sql`
+(6/6 assertions); both UI branches driven through the app; stock moved on the
+newest correction and did not on the older; `replaced_by` populated through a
+real session (the SQL editor runs as postgres with auth.uid() null, so this
+could only be proven in-app); as a tech the pencil column is absent entirely
+while "Modifier" and "Comptage rapide" remain.
+
+Still untested: a tech calling `correct_stock_count` directly, bypassing the
+UI. Covered by the UPDATE policy, not exercised.
+
+DELETE is deliberately not granted. The trigger already handles it, so the
+policy can be added without reworking history, but removing a count changes
+which count is latest and has to unwind the lot balance -- a separate
+problem.
+
+Left behind on the test project: real corrections on "Abaisse-langue"
+(now 7 and 2) plus two history rows.
+
+### Two things learned, worth keeping
+
+**Several sessions completing on one target_date is normal here** -- 5 on
+2026-08-12, 4 on 2026-08-13. Not an anomaly; it looks like a campaign split
+across rooms or categories. Two consequences:
+  - The `session_id` backfill in stage 1 assumed collisions were rare and
+    only attributed unambiguous dates, so it linked 5 of 273 rows on test.
+    Harmless -- new rows get `session_id` from the RPC directly -- but
+    historical rows are essentially all unattributed. A stronger backfill is
+    possible by joining through `inventory_session_entries` on
+    (item_type_id, counted_quantity); not done, and a wrong attribution is
+    worse than none.
+  - It caused a real bug: `rollUpCounts` grouped by `counted_at` alone and
+    took whichever row the array ended on. Fixed in v0.20.1 by breaking ties
+    on `created_at`, matching how `current_stock` already ordered.
+
+**`npx tsc --noEmit` checks nothing.** It resolves to the root
+project-references tsconfig. 14 type errors in the correction work went
+unreported until `tsc -b` ran. Use `npm run build`. CLAUDE.md corrected.
 
 ## 3c. Stage 2 -- one stock mechanism  ** not started **
 
