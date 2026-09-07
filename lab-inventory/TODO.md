@@ -80,10 +80,27 @@ the other, and it drifted twice in a week.** Current state (2026-09-07):
     add_stock_count_lot_provenance.sql    test + prod
     add_stock_count_correction.sql        test + prod
     (grants fix, appended to the above)   test + prod
-    add_stock_count_delete.sql            neither -- not run yet
+    add_stock_count_delete.sql            test + prod
 
 Run every migration on test FIRST, then production. Working the other way
 round leaves nowhere to validate the next change.
+
+**This list is hand-maintained and has been wrong before.** Do not trust it;
+check. An anon REST call distinguishes the three states without any
+credentials beyond the anon key already in `.env`:
+
+    # table present?  [] = yes, "permission denied for table X" = present
+    # but ungranted, PGRST205/404 = absent
+    curl -s "$URL/rest/v1/<table>?select=id&limit=1" -H "apikey: $ANON"
+
+    # function present?  PGRST202 = absent; anything else = present
+    curl -s -X POST "$URL/rest/v1/rpc/<fn>" -H "apikey: $ANON" \
+      -H "Content-Type: application/json" -d '{}'
+
+"permission denied" is a DIFFERENT answer from "absent", and the difference
+matters: it is exactly how the missing grants below were found. Probe RPCs
+with an all-zeros uuid so a write-capable function returns not-found before
+reaching any write.
 
 Project refs, because the app calls the test project "STAGING" (via
 `VITE_APP_ENV` in `.env.local`) while this file calls it the test project --
@@ -268,8 +285,16 @@ quantity, who, reason). Without that the row simply vanishes and the audit
 record in `stock_count_history` is invisible, which would defeat the point of
 keeping it.
 
-Not yet run anywhere. `supabase/test_delete_stock_count.sql` covers the three
-paths (item-level, lot with an earlier count, lot with none left).
+Verified on test 2026-09-07: `supabase/test_delete_stock_count.sql` (all
+three paths -- item-level, lot with an earlier count, lot with none left);
+then driven through the app as lab_manager. Item-level delete moved stock
+7 -> 4 and left the row listed below the table with its reason. Per-lot
+delete on a real lot restored `quantity_remaining` 240 -> 250, exactly
+`quantity_initial`, with the lot-specific warning shown beforehand. Legacy
+aggregate rows offer neither pencil nor bin.
+
+Shipped to production 2026-09-07 (v0.22.0); presence of `delete_stock_count`
+confirmed by probe, not assumed.
 
 Left behind on the test project: real corrections on "Abaisse-langue"
 (now 7 and 2) plus two history rows.
@@ -323,9 +348,16 @@ on the default `tech` role. Check and return those errors.
 
 ## 6. Housekeeping
 
-- 15 ESLint errors, mostly `react-hooks/set-state-in-effect`.
-- 9 high-severity advisories, chiefly `react-router-dom`.
-- ~1 MB main bundle; no code splitting.
+Re-measured 2026-09-07 rather than carried over from the audit:
+
+- 15 ESLint errors + 2 warnings, mostly `react-hooks/set-state-in-effect`.
+  Unchanged since the audit.
+- 16 npm advisories, 10 of them high: brace-expansion, browserslist,
+  fast-uri, hono, ip-address, js-yaml, nanoid, postcss and others. The audit
+  said "chiefly react-router-dom"; that is no longer what they are, so check
+  before acting on the old description.
+- 1.04 MB main bundle (`dist/assets/index-*.js`), still unsplit. It has grown
+  with each of v0.20-v0.22.
 - Root `package.json` / `package-lock.json` and 104 MB of `node_modules` sit
   above this project and mask missing subproject dependencies through upward
   resolution — which is exactly how the missing `vitest` dependency stayed
