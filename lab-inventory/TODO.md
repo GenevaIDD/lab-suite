@@ -71,7 +71,12 @@ For lot-tracked items that leaves a detectable duplicate row. For non-tracked
 items a double-submit just adds the delivery quantity twice with no trace, and
 cannot be audited retrospectively. Fixing the write path is the only remedy.
 
-## 3. Test project parity — DONE 2026-09-03
+## 3. Test project parity — DONE 2026-09-03, **now stale**
+
+**2026-09-07:** the test project is BEHIND production again. Both
+`add_tech_item_rename.sql` and `add_stock_count_lot_provenance.sql` were run
+on production only. Run them on test before starting 3b's count correction,
+or there is nowhere safe to validate it.
 
 The test project (`uizvyziucufrkdxinzda`, eu-west-1) now holds a copy of
 production's public schema data:
@@ -97,54 +102,119 @@ PostgREST's OpenAPI root, and both return empty rather than an error. During
 this work that made buckets and tables look absent when they existed. Verify
 schema questions in the SQL editor, not through the anon key.
 
-## 3b. Let admins correct past counts  ** NEW, requested 2026-09-03 **
+## 3b. Correcting misentries  ** requested 2026-09-03 **
 
-Staff sometimes notice a past count was entered wrong (a typo, a
-misattributed lot) and there is currently no way to fix it. This is not just
-missing UI: `stock_counts` has INSERT-only RLS policies (schema.sql:384), so
-the table is append-only by construction. Deliveries, by contrast, already
-have update and delete policies for admin + lab_manager, with UI in
-`components/inventory/DeliveryActions.tsx` -- that is the pattern to mirror.
+Staff notice a past entry was wrong -- a typo in a name, a count keyed as 70
+instead of 7 -- and want to fix it themselves. Split into two halves; the
+first shipped in v0.20.0, the second has not started.
+
+### DONE 2026-09-04 -- correcting item details
+
+`item_types` was admin+lab_manager-only for update, so whoever created a
+misspelled item could not fix it. Worse, the Edit button on ItemDetail and
+EquipmentDetail was not role-gated at all: a tech saw it, filled the form and
+the save failed at RLS. That silent failure was most of the original
+complaint.
+
+  - tech + lab_team can now update item_types, EXCEPT `unit` and
+    `track_lots`, which rewrite the meaning of historical data.
+    `supabase/add_tech_item_rename.sql`: an UPDATE policy plus a
+    `guard_item_type_update` BEFORE UPDATE trigger. Column-level GRANTs
+    cannot express this -- every app user shares the `authenticated`
+    Postgres role, the app role lives in `profiles.role`.
+  - Edit buttons gated; both edit routes guard on direct navigation.
+  - `cap.edit` in the Users capability matrix split into `cap.edit.item`,
+    `cap.edit.units`, `cap.edit.equip`.
+
+Run on production 2026-09-05. Verified: a tech can rename an item.
+
+### DONE 2026-09-05 -- one stock count = one counted thing (stage 1)
+
+Prerequisite for correcting counts, and a fix in its own right. Lots had
+become a second *storage mechanism* rather than a dimension of a count:
+tracked items kept stock in `lots.quantity_remaining` while their
+`stock_counts` rows were an item-level SUM that nobody counted, written with
+`counted_by` and `notes` null. `fix_last_counted_lot_items.sql` exists
+because that split forced the view to take quantity from lots and the date
+from stock_counts.
+
+`supabase/add_stock_count_lot_provenance.sql`:
+  - `stock_counts` gains `lot_id`, `session_id`, `counted_by_user_id`,
+    `is_legacy_aggregate`; `inventory_session_entries` gains
+    `entered_by_user_id`.
+  - `complete_inventory_session` writes one row per entry carrying `lot_id`,
+    replacing the old two-path insert. Ad-hoc lot counts likewise.
+  - `session_id` backfilled by matching completed sessions on the exact
+    midnight-UTC `counted_at` the RPC writes. Ambiguous target_dates left
+    null rather than guessed.
+  - `current_stock` split into `latest_item_count` (item-level rows only)
+    and `latest_count_date`, so a per-lot row can never be read as an item
+    total.
+
+Client: `rollUpCounts` (`src/lib/stockCalc.ts`) collapses per-lot rows into
+one item-level point before the chart builders see them. Without it
+`buildBurnRate` compares one lot against another and invents consumption --
+silently, with no error. It carries a running per-lot quantity rather than
+grouping by timestamp, because the ad-hoc form counts ONE lot per
+submission, so each row gets its own timestamp.
+
+Run on production 2026-09-06, deployed same day. Team confirmed a completed
+session produces per-lot rows with attribution, 2026-09-07.
+Read-only checks: `supabase/verify_stock_count_provenance.sql`.
+
+Legacy aggregate rows cannot be decomposed -- the per-lot detail was never
+captured -- so history is clean going forward, not backwards.
+
+### TODO -- correcting a recorded count
+
+Not started. `stock_counts` is still INSERT-only (schema.sql), and the count
+history on ItemDetail is read-only.
 
 Decisions taken:
-  - Who: admin + lab_manager, matching the delivery policy.
-  - History: corrections are edits in place, but a BEFORE UPDATE trigger
-    copies the previous row into a history table with who and when. The
-    append-only property protected auditability; a trigger keeps that while
+  - Who: admin + lab_manager, matching the delivery policy in
+    `components/inventory/DeliveryActions.tsx`.
+  - History: edits in place, with a BEFORE UPDATE/DELETE trigger copying the
+    previous row into a history table (who, when). Keeps auditability while
     giving normal edit UX.
-  - Scope: all three of stock_counts, lots.quantity_remaining, and session
-    entries.
+  - Lot-tracked items are corrected **per lot**, never through the item-level
+    aggregate. Decided 2026-09-05; stage 1 exists to make that possible.
 
-### Work
+Work:
+1. `stock_count_history` table: source row id, every mutable field's previous
+   value, replaced_at, replaced_by.
+2. BEFORE UPDATE and BEFORE DELETE triggers writing OLD into it. Triggers
+   rather than application code, so nothing can bypass them.
+3. UPDATE and DELETE policies on stock_counts for admin + lab_manager.
+4. A transactional RPC for the correction itself. Correcting a lot's count is
+   two writes that must agree -- the `stock_counts` row and
+   `lots.quantity_remaining` -- which is the same problem audit finding 2
+   applied an RPC to. Stage 2 (below) would remove the second write.
+5. UI: edit affordance on the count history table, showing that a row was
+   amended and what it was before.
+6. i18n keys, FR and EN.
 
-1. `stock_count_history` table (+ equivalents for lots and session entries,
-   or one polymorphic audit table -- decide when building). Columns: source
-   row id, every mutable field's previous value, replaced_at, replaced_by.
-2. BEFORE UPDATE and BEFORE DELETE triggers writing OLD into history.
-   Triggers rather than application code, so nothing can bypass it.
-3. RLS: add UPDATE and DELETE policies on stock_counts for admin +
-   lab_manager. lots already allows admin/lab_manager/tech writes -- tighten
-   or leave, decide when building.
-4. UI: edit affordance on the item's count history and on the lot list,
-   mirroring DeliveryActions. Show that a row was amended, with the previous
-   value visible.
-5. i18n keys for all new strings, FR and EN.
+Watch out:
+  - Correcting the LATEST count changes displayed stock immediately;
+    correcting an older one changes only history and the burn rate. The UI
+    must make clear which is happening, or people will "fix" a number and
+    see nothing change.
+  - Legacy aggregate rows (`is_legacy_aggregate`) must never be offered for
+    correction: they summarise lots that were never individually recorded.
+  - Session entries stay a historical record. A completed session's entries
+    already produced stock_counts rows; the correction belongs on those rows,
+    not on the entry. This settles the open question in the original 3b.
 
-### Watch out
+## 3c. Stage 2 -- one stock mechanism  ** not started **
 
-  - `current_stock` picks the latest count per item by
-    (counted_at desc, created_at desc). Editing the LATEST count changes
-    displayed stock immediately; editing an older one does not, but does
-    change burn-rate history. The UI should make clear which is happening.
-  - Lot-tracked items take stock from `lots.quantity_remaining`, not
-    stock_counts, so "correct this item's count" means different writes
-    depending on `track_lots`. Easy to get half-right.
-  - Session entries are the hard case: a completed session derived
-    stock_counts rows from its entries, so amending an entry after the fact
-    leaves the derived rows stale unless they are recomputed. Consider
-    whether amending an entry should re-run the derivation, or whether the
-    session summary is simply a historical record and the correction belongs
-    on the stock_count it produced.
+`current_stock` still has two branches: non-tracked items derive stock from
+counts, tracked items from `lots.quantity_remaining`. Stage 1 made the count
+rows uniform; stage 2 would make the *view* uniform, deriving tracked stock
+from the latest count per lot and demoting `quantity_remaining` to a cache.
+
+Not scheduled, and bigger than it sounds: `quantity_remaining` is written
+from four places (delivery upsert, the session RPC, the ad-hoc count form,
+discard), so demoting it means turning each into an event the view reads.
+Do the count correction above first -- it does not depend on this.
 
 ## 4. Offline queue ownership (audit finding 4)
 
