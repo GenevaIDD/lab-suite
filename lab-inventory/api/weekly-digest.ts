@@ -22,6 +22,11 @@
 // Manual dry run (renders, sends nothing, no secret needed only when
 // CRON_SECRET is unset, i.e. locally):
 //   GET /api/weekly-digest?dry=1
+//
+// Test send to one person (real email, real data, nobody else receives it,
+// and the alert columns are NOT stamped so the first real run still shows
+// every NOUVEAU badge):
+//   GET /api/weekly-digest?to=someone@example.org
 
 import { createClient } from '@supabase/supabase-js'
 import { buildDigest } from '../src/lib/alerts.js'
@@ -54,6 +59,8 @@ export default async function handler(req: Req, res: Res) {
   const query = new URL(req.url ?? '/', 'http://localhost').searchParams
   const dry = query.get('dry') === '1'
   const lang = (query.get('lang') === 'en' ? 'en' : 'fr') as DigestLang
+  // Test send: one named recipient instead of the whole list.
+  const testTo = query.get('to')?.trim().toLowerCase() ?? ''
 
   // ── Auth ───────────────────────────────────────────────────
   // When CRON_SECRET is configured (always, in production) it is required,
@@ -115,7 +122,22 @@ export default async function handler(req: Req, res: Res) {
   })
 
   const email = renderDigestEmail(digest, { appUrl: appUrl || url, lang })
-  const recipients = (profileR.data ?? []).map((p) => p.email).filter(Boolean)
+  let recipients = (profileR.data ?? []).map((p) => p.email).filter(Boolean)
+
+  // A test send goes to exactly one address, and only to an address that
+  // already belongs to an active recipient. Holding the secret should let
+  // you trigger the digest, not use this endpoint to mail strangers.
+  if (testTo) {
+    const known = recipients.some((e: string) => e.toLowerCase() === testTo)
+    if (!known) {
+      return res.status(400).json({
+        error: 'Refusing to send to an address that is not an active admin or lab_manager',
+        requested: testTo,
+      })
+    }
+    recipients = [testTo]
+    email.subject = `[TEST] ${email.subject}`
+  }
 
   // ── Dry run ────────────────────────────────────────────────
   if (dry) {
@@ -165,6 +187,17 @@ export default async function handler(req: Req, res: Res) {
   if (!send.ok) {
     const detail = await send.text()
     return res.status(502).json({ error: 'Resend rejected the message', status: send.status, detail })
+  }
+
+  // A test send must not consume the alert state: stamping here would mean
+  // Monday's real digest shows no NOUVEAU badges at all, because everything
+  // had already been "announced" to an audience of one.
+  if (testTo) {
+    return res.status(200).json({
+      ok: true, test: true, sent: 1, to: testTo,
+      subject: email.subject, total: digest.total, stamped: null,
+      ts: new Date().toISOString(),
+    })
   }
 
   // ── Stamp what was reported ────────────────────────────────
