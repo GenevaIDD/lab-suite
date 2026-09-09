@@ -91,6 +91,8 @@ interface Row {
 
 interface Section {
   title: string
+  /** Deep link to the uncapped list on the alerts page. */
+  href: string
   rows: Row[]
   /** Underlying items (lots, not rows) — what the heading reports. */
   total: number
@@ -156,6 +158,7 @@ export function buildSections<
   if (digest.overdue.length) {
     sections.push({
       title: tr(lang, 'digest.section.overdue'),
+      href: `${appUrl}/alerts?s=overdue`,
       total: digest.overdue.length,
       hiddenRows: Math.max(0, digest.overdue.length - maxRows),
       rows: cap(digest.overdue).map((m) => ({
@@ -172,6 +175,7 @@ export function buildSections<
   if (digest.dueSoon.length) {
     sections.push({
       title: tr(lang, 'digest.section.duesoon'),
+      href: `${appUrl}/alerts?s=duesoon`,
       total: digest.dueSoon.length,
       hiddenRows: Math.max(0, digest.dueSoon.length - maxRows),
       rows: cap(digest.dueSoon).map((m) => ({
@@ -187,6 +191,7 @@ export function buildSections<
   if (digest.lowStock.length) {
     sections.push({
       title: tr(lang, 'digest.section.low'),
+      href: `${appUrl}/alerts?s=low`,
       total: digest.lowStock.length,
       hiddenRows: Math.max(0, digest.lowStock.length - maxRows),
       rows: cap(digest.lowStock).map((i) => ({
@@ -204,6 +209,7 @@ export function buildSections<
     const groups = groupLots(digest.expired)
     sections.push({
       title: tr(lang, 'digest.section.expired'),
+      href: `${appUrl}/alerts?s=expired`,
       total: digest.expired.length,
       hiddenRows: Math.max(0, groups.length - maxRows),
       rows: cap(groups).map((g) => ({
@@ -220,6 +226,7 @@ export function buildSections<
     const groups = groupLots(digest.expiring)
     sections.push({
       title: tr(lang, 'digest.section.expiring', { n: digest.expiryHorizonDays }),
+      href: `${appUrl}/alerts?s=expiring`,
       total: digest.expiring.length,
       hiddenRows: Math.max(0, groups.length - maxRows),
       rows: cap(groups).map((g) => ({
@@ -234,6 +241,7 @@ export function buildSections<
   if (digest.stale.length) {
     sections.push({
       title: tr(lang, 'digest.section.stale', { n: digest.staleDays }),
+      href: `${appUrl}/alerts?s=stale`,
       total: digest.stale.length,
       hiddenRows: Math.max(0, digest.stale.length - maxRows),
       rows: cap(digest.stale).map((i) => ({
@@ -287,12 +295,16 @@ function renderRow(row: Row, lang: DigestLang): string {
 
 function renderSection(section: Section, lang: DigestLang): string {
   const hidden = section.hiddenRows
+  // The "and N more" line is exactly where the reader wants the full list,
+  // so it is the link, not dead text.
   const more = hidden > 0
-    ? `<div style="font-size:12px;color:${MUTED};padding-top:8px;font-family:${FONT};">${esc(tr(lang, 'digest.more', { n: hidden }))}</div>`
+    ? `<div style="font-size:12px;padding-top:8px;font-family:${FONT};">`
+      + `<a href="${esc(section.href)}" style="color:${MUTED};">${esc(tr(lang, 'digest.more', { n: hidden }))} &rarr;</a></div>`
     : ''
   return `<tr><td style="padding:24px 0 0 0;">
-  <div style="font-family:${FONT};font-size:13px;font-weight:600;color:${INK};text-transform:uppercase;letter-spacing:.04em;">
-    ${esc(section.title)} <span style="color:${MUTED};font-weight:400;">(${section.total})</span>
+  <div style="font-family:${FONT};font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">
+    <a href="${esc(section.href)}" style="color:${INK};text-decoration:none;">${esc(section.title)}</a>
+    <span style="color:${MUTED};font-weight:400;">(${section.total})</span>
   </div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;border-collapse:collapse;">
     ${section.rows.map((r) => renderRow(r, lang)).join('\n')}
@@ -361,7 +373,9 @@ export function renderDigestEmail<
         const isNew = r.isNew ? ` *${tr(lang, 'digest.new')}*` : ''
         textLines.push(`  - ${r.primary}${isNew} — ${r.secondary}${badge}`)
       }
-      if (s.hiddenRows > 0) textLines.push(`  ${tr(lang, 'digest.more', { n: s.hiddenRows })}`)
+      if (s.hiddenRows > 0) {
+        textLines.push(`  ${tr(lang, 'digest.more', { n: s.hiddenRows })} — ${s.href}`)
+      }
       textLines.push('')
     }
   }

@@ -254,3 +254,55 @@ describe('lot grouping', () => {
       .not.toContain('autre(s)')
   })
 })
+
+// ── deep links to the alerts page ─────────────────────────────
+
+describe('section deep links', () => {
+  const digest = digestWith({
+    schedules: [sch()],
+    itemTypes: [item()],
+    stockRows: [stock('it-1', 0, '2026-09-01T00:00:00Z')],
+    lots: [lot()],
+  })
+
+  it('links each section heading to its own filtered view', () => {
+    const sections = buildSections(digest, 'fr', APP, DEFAULT_MAX_ROWS)
+    // No stale section here: this fixture's item was counted 8 days ago.
+    expect(sections.map((s) => s.href)).toEqual([
+      `${APP}/alerts?s=overdue`,
+      `${APP}/alerts?s=low`,
+      `${APP}/alerts?s=expired`,
+    ])
+  })
+
+  it('links the stale section too, when there is one', () => {
+    const d = digestWith({
+      itemTypes: [item()],
+      stockRows: [stock('it-1', 100, '2026-01-01T00:00:00Z')],
+    })
+    const sections = buildSections(d, 'fr', APP, DEFAULT_MAX_ROWS)
+    expect(sections.map((s) => s.href)).toContain(`${APP}/alerts?s=stale`)
+  })
+
+  it('makes the heading itself clickable', () => {
+    const out = renderDigestEmail(digest, { appUrl: APP })
+    expect(out.html).toContain(`href="${APP}/alerts?s=expired"`)
+  })
+
+  it('links the "and N more" line, which is where the reader wants the rest', () => {
+    const many = Array.from({ length: 23 }, (_, i) =>
+      item({ id: `it-${i}`, name: `Article ${i}`, min_threshold: 10 }))
+    const big = digestWith({ itemTypes: many, stockRows: many.map((m) => stock(m.id, 0)) })
+    const out = renderDigestEmail(big, { appUrl: APP, maxRows: 10 })
+    expect(out.html).toContain(`<a href="${APP}/alerts?s=low"`)
+    expect(out.html).toContain('et 13 autre(s)')
+  })
+
+  it('spells the url out in the plain-text part, which cannot carry links', () => {
+    const many = Array.from({ length: 23 }, (_, i) =>
+      item({ id: `it-${i}`, name: `Article ${i}`, min_threshold: 10 }))
+    const big = digestWith({ itemTypes: many, stockRows: many.map((m) => stock(m.id, 0)) })
+    const out = renderDigestEmail(big, { appUrl: APP, maxRows: 10 })
+    expect(out.text).toContain(`et 13 autre(s) — ${APP}/alerts?s=low`)
+  })
+})

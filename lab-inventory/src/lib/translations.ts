@@ -632,6 +632,14 @@ export const translations = {
     'cap.delete':         'Retirer / supprimer',
     'cap.users':          'Gérer les utilisateurs',
 
+    // ── Alerts page (/alerts) ───────────────────────────────
+    'nav.alerts':        'Alertes',
+    'alerts.title':      'Points à traiter',
+    'alerts.subtitle':   '{n} point(s) demandent votre attention.',
+    'alerts.all':        'Tout afficher',
+    'alerts.empty':      'Rien à signaler. Tout est à jour.',
+    'alerts.section.empty': 'Rien dans cette catégorie.',
+
     // ── Weekly digest email (api/weekly-digest.ts) ──────────
     // Rendered by src/lib/digestEmail.ts, not by t() — the email has no
     // React. Kept here anyway so every user-facing string in the product
@@ -1298,6 +1306,14 @@ export const translations = {
     'cap.edit.equip':     'Edit equipment',
     'cap.delete':         'Retire / delete',
     'cap.users':          'Manage users',
+
+    // ── Alerts page (/alerts) ───────────────────────────────
+    'nav.alerts':        'Alerts',
+    'alerts.title':      'Needs attention',
+    'alerts.subtitle':   '{n} item(s) need your attention.',
+    'alerts.all':        'Show all',
+    'alerts.empty':      'Nothing to report. Everything is up to date.',
+    'alerts.section.empty': 'Nothing in this category.',
 
     // ── Weekly digest email (api/weekly-digest.ts) ──────────
     'digest.subject.items':   'Uvira inventory — {n} item(s) need attention',

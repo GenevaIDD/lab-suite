@@ -7,6 +7,7 @@ import { EnvBanner } from '@/components/layout/EnvBanner'
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
 import { Login } from '@/pages/Login'
 import { SetPassword } from '@/pages/SetPassword'
+import { Alerts } from './pages/Alerts'
 import { Dashboard } from '@/pages/Dashboard'
 import { Equipment } from '@/pages/Equipment'
 import { EquipmentNew } from '@/pages/EquipmentNew'
@@ -85,6 +86,7 @@ export default function App() {
               }
             >
               <Route index element={<Dashboard />} />
+              <Route path="alerts" element={<Alerts />} />
               <Route path="equipment" element={<Equipment />} />
               <Route path="equipment/new" element={<EquipmentNew />} />
             <Route path="equipment/retired" element={<EquipmentRetired />} />

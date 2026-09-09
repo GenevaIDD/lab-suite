@@ -201,6 +201,35 @@ export function useItemLots(itemTypeId: string | undefined, includeExhausted = f
   })
 }
 
+/**
+ * Newest count date per item, read straight from stock_counts.
+ *
+ * Not the same as `current_stock.last_counted_at`, which coalesces to
+ * max(lots.created_at) for lot-tracked items and so reports a delivered-but-
+ * never-counted item as freshly counted. The digest email derives the same
+ * map server-side; the alerts page uses this so the two agree.
+ *
+ * A narrow projection of the whole table -- a few hundred rows -- because
+ * PostgREST cannot express the group-by directly.
+ */
+export function useLastCountedByItem() {
+  return useQuery({
+    queryKey: ['stock_counts', 'last_by_item'],
+    queryFn: async (): Promise<Map<string, string>> => {
+      const { data, error } = await supabase
+        .from('stock_counts')
+        .select('item_type_id, counted_at')
+      if (error) throw error
+      const map = new Map<string, string>()
+      for (const row of (data ?? []) as { item_type_id: string; counted_at: string }[]) {
+        const prev = map.get(row.item_type_id)
+        if (!prev || row.counted_at > prev) map.set(row.item_type_id, row.counted_at)
+      }
+      return map
+    },
+  })
+}
+
 export function useAllActiveLots() {
   return useQuery({
     queryKey: ['lots', 'all_active'],

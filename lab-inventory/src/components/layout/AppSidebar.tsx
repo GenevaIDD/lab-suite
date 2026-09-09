@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
+  AlertTriangle,
   Wrench,
   Package,
   Users,
@@ -23,6 +24,7 @@ export function AppSidebar() {
   const { t } = useLang()
   const navItems = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+    { to: '/alerts', label: t('nav.alerts'), icon: AlertTriangle },
     { to: '/equipment', label: t('nav.equipment'), icon: Wrench },
     { to: '/inventory', label: t('nav.inventory'), icon: Package },
     { to: '/users', label: t('nav.users'), icon: Users },
