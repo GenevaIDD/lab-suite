@@ -336,6 +336,99 @@ from four places (delivery upsert, the session RPC, the ad-hoc count form,
 discard), so demoting it means turning each into an event the view reads.
 Do the count correction above first -- it does not depend on this.
 
+## 7. Weekly digest email  ** shipped 2026-09-09, not yet fired **
+
+Requested 2026-09-07: a Monday email covering maintenance overdue/upcoming,
+low stock, expired and expiring lots, items not counted in a while, and
+"strange numbers". The first five shipped; anomaly detection was explicitly
+deferred and is NOT built (`buildAnomalies` in stockCalc.ts predates this and
+is unrelated to the digest).
+
+Cron `0 4 * * 1` in vercel.json -- 04:00 UTC is 06:00 in Uvira. First
+automatic run: Monday 2026-09-14. Nothing has fired yet; every send so far
+has been manual.
+
+### Shape
+
+Detection lives in `src/lib/alerts.ts`, shared with Dashboard.tsx so the
+email and the screen cannot disagree. Rendering is `src/lib/digestEmail.ts`
+(French; `?lang=en` works). `api/weekly-digest.ts` does the I/O. All three
+avoid the `@/` alias -- see the build note below.
+
+  GET /api/weekly-digest?dry=1              renders, sends nothing
+  GET /api/weekly-digest?dry=1&format=json  counts + recipient list
+  GET /api/weekly-digest?to=<email>         real send to one person
+
+All require `Authorization: Bearer $CRON_SECRET`. Vercel supplies that header
+automatically on cron invocations when CRON_SECRET is set. `?to=` refuses any
+address that is not already an active admin/lab_manager, and deliberately
+does NOT stamp the alert columns -- one test would otherwise mark all current
+alerts announced and strip every NOUVEAU badge from the real run.
+
+Recipients are active `admin` + `lab_manager` profiles. On 2026-09-09 that
+resolved to 7 people across UNIGE, LSHTM, Oxfam and one gmail address. Nobody
+explicitly chose that list; it is a side effect of role assignment. A
+`profiles.digest_opt_in` toggle on the Users page is the obvious next step
+and is NOT built.
+
+`maintenance_schedules.last_alerted_at` and `item_types.low_stock_alerted_at`
+existed since the original schema and had never been written by anything.
+The digest stamps them after a successful send, so a row reported for the
+first time renders NOUVEAU and afterwards does not. No migration was needed.
+Lots have no equivalent column, so expiry rows carry no badge.
+
+### Two things this cost, worth keeping
+
+**`npm run build` cannot catch an ESM resolution failure.** The first deploy
+returned FUNCTION_INVOCATION_FAILED on every request:
+
+    ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/src/lib/alerts'
+
+package.json is `"type": "module"` and Vercel transpiles each api/ file
+without rewriting import specifiers, so extensionless relative imports that
+Vite resolves happily are unresolvable to Node in Lambda. Runtime imports in
+the shared chain now carry explicit `.js`. `vercel build` did not catch it
+either -- it printed "Build completed successfully" while emitting an
+unrelated wall of TS errors. The check that works, and the one to run before
+trusting a deploy of this function:
+
+    npx vercel build --prod --yes
+    cd .vercel/output/functions/api/weekly-digest.func
+    node -e "import('./api/weekly-digest.js')"
+
+`tsconfig.api.json` now puts api/ under `tsc -b` (it was outside every
+`include` and had never been typechecked). It omits the `@/*` alias on
+purpose, so an aliased import in shared code fails the build rather than
+404ing in production -- verified by deliberately introducing one.
+
+**Real data broke the layout in a way fixtures did not.** The first
+production dry run showed 9 of 12 expiring rows were one delivery of
+Bioperfectus Cholera Kits, lot numbers T20251000300205-213, one boîte each,
+same expiry. Lots sharing item+manufacturer+expiry now collapse to one row
+carrying every lot number and the summed quantity. Section headings still
+report the true lot count, so Section tracks `hiddenRows` separately from
+`total`.
+
+A fixture preview also caught buildDigest passing a placeholder quantity of 0
+on rebuilt stale rows, which rendered every stale item as empty --
+"Éthanol 96%: 0 boîtes" for an item holding 40. Regression test added.
+
+### Known gaps
+
+- **26 stale items, roughly half with `min_threshold = 0`** -- created,
+  never given a threshold, never counted. findLowStock ignores them
+  (nothing is below zero), so stale is the only place they surface. Whether
+  to demote or exclude them is undecided; excluding would hide things like
+  "Master mix, 0 plaquettes, jamais compté", which looks worth knowing.
+- Delivery is unproven beyond Resend accepting the message. A [TEST] send to
+  andrew.azman@unige.ch succeeded 2026-09-09 10:18 UTC; inbox rendering in
+  Gmail/Outlook has not been confirmed, and the sending domain
+  (mail.diseasedynamics.ch) has no reputation yet.
+- Lot-number sorting is lexicographic, correct only because these numbers are
+  fixed-width.
+- No test covers api/weekly-digest.ts itself. alerts.ts and digestEmail.ts
+  are covered (219 tests); the I/O layer is exercised only by real requests.
+
 ## 4. Offline queue ownership (audit finding 4)
 
 Queued writes carry no user or project identity and live under one global
