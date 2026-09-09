@@ -24,9 +24,9 @@
 //   GET /api/weekly-digest?dry=1
 
 import { createClient } from '@supabase/supabase-js'
-import { buildDigest } from '../src/lib/alerts'
-import { renderDigestEmail } from '../src/lib/digestEmail'
-import type { DigestLang } from '../src/lib/digestEmail'
+import { buildDigest } from '../src/lib/alerts.js'
+import { renderDigestEmail } from '../src/lib/digestEmail.js'
+import type { DigestLang } from '../src/lib/digestEmail.js'
 
 interface Req {
   method?: string

@@ -18,6 +18,14 @@
  * callers pass richer objects and the generics preserve them, so the
  * Dashboard still gets its full ItemType back out.
  *
+ * Relative imports here carry an explicit .js extension, which looks wrong in
+ * a .ts file and is not. The package is "type": "module", and Vercel
+ * transpiles each file for the serverless bundle without rewriting import
+ * specifiers, so Node's ESM resolver needs the extension at runtime.
+ * TypeScript maps ./x.js back to ./x.ts, and Vite does the same, so all three
+ * agree. Drop the extension and the function dies in Lambda with
+ * ERR_MODULE_NOT_FOUND while every local check still passes.
+ *
  * Date arithmetic uses date-fns exactly as the Dashboard did before this
  * module existed, so the extraction is behaviour-preserving. Lot expiry is
  * the exception: getExpiringLots compares YYYY-MM-DD strings in UTC, which
@@ -25,7 +33,7 @@
  */
 
 import { differenceInDays, parseISO } from 'date-fns'
-import { getExpiringLots } from './lotCalc'
+import { getExpiringLots } from './lotCalc.js'
 import type { Lot } from './lotCalc'
 
 // ── Thresholds ────────────────────────────────────────────────

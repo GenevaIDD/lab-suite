@@ -16,7 +16,7 @@
  * serverless function.
  */
 
-import { translations } from './translations'
+import { translations } from './translations.js'
 import type { Digest, AlertSchedule, AlertEquipment, AlertItemType } from './alerts'
 import type { Lot } from './lotCalc'
 
