@@ -5,6 +5,7 @@ import {
   findLowStock,
   findStaleCounts,
   findExpiredLots,
+  buildDigest,
   STALE_COUNT_DAYS,
 } from './alerts'
 import type { AlertEquipment, AlertSchedule, AlertItemType, AlertStockRow } from './alerts'
@@ -253,5 +254,110 @@ describe('findExpiredLots', () => {
       makeLot({ id: 'middle', expiry_date: '2026-05-01' }),
     ]
     expect(findExpiredLots(lots, TODAY).map((l) => l.id)).toEqual(['ancient', 'middle', 'recent'])
+  })
+})
+
+// ── buildDigest ───────────────────────────────────────────────
+
+describe('buildDigest', () => {
+  const base = {
+    equipment: [makeEquipment()],
+    schedules: [],
+    itemTypes: [],
+    stockRows: [],
+    lots: [],
+    today: TODAY,
+  }
+
+  it('is empty when nothing needs attention', () => {
+    const d = buildDigest(base)
+    expect(d.isEmpty).toBe(true)
+    expect(d.total).toBe(0)
+  })
+
+  it('totals every section', () => {
+    const d = buildDigest({
+      ...base,
+      schedules: [makeSchedule({ next_due: '2026-08-01' })],           // 1 overdue
+      itemTypes: [makeItem({ min_threshold: 10 })],                     // 1 low + 1 stale (never counted)
+      lots: [makeLot({ expiry_date: '2026-01-01' })],                   // 1 expired
+    })
+    expect(d.overdue).toHaveLength(1)
+    expect(d.lowStock).toHaveLength(1)
+    expect(d.expired).toHaveLength(1)
+    expect(d.stale).toHaveLength(1)
+    expect(d.total).toBe(4)
+    expect(d.isEmpty).toBe(false)
+  })
+
+  it('records the thresholds it used', () => {
+    const d = buildDigest({ ...base, staleDays: 90, expiryHorizonDays: 30 })
+    expect(d.staleDays).toBe(90)
+    expect(d.expiryHorizonDays).toBe(30)
+  })
+
+  it('defaults the thresholds', () => {
+    const d = buildDigest(base)
+    expect(d.staleDays).toBe(STALE_COUNT_DAYS)
+    expect(d.expiryHorizonDays).toBe(90)
+  })
+
+  // The whole point of lastCountedByItem: the view says "counted recently"
+  // because it fell back to the lot's creation date, and stock_counts says
+  // the item was never counted at all.
+  it('prefers real count dates over the view, catching an item the view hides', () => {
+    const item = makeItem({ id: 'tracked-1' })
+    const viewSaysFresh = [stock('tracked-1', 100, '2026-09-01T00:00:00Z')]
+
+    const fooled = buildDigest({ ...base, itemTypes: [item], stockRows: viewSaysFresh })
+    expect(fooled.stale).toHaveLength(0)
+
+    const corrected = buildDigest({
+      ...base,
+      itemTypes: [item],
+      stockRows: viewSaysFresh,
+      lastCountedByItem: new Map(), // absent from the map = never counted
+    })
+    expect(corrected.stale).toHaveLength(1)
+    expect(corrected.stale[0].daysSince).toBeNull()
+  })
+
+  it('still uses real dates when they are present in the map', () => {
+    const item = makeItem({ id: 'i1' })
+    const d = buildDigest({
+      ...base,
+      itemTypes: [item],
+      stockRows: [stock('i1', 100, '2026-09-01T00:00:00Z')],
+      lastCountedByItem: new Map([['i1', '2026-05-01T00:00:00Z']]),
+    })
+    expect(d.stale).toHaveLength(1)
+    expect(d.stale[0].daysSince).toBe(129)
+  })
+
+  it('reports the real quantity on stale rows, not a placeholder', () => {
+    // Regression: buildDigest used to pass quantity 0 on the rebuilt stale
+    // rows, so a fully stocked item was rendered as "0 boîtes" in the email.
+    const d = buildDigest({
+      ...base,
+      itemTypes: [makeItem({ id: 'i1', min_threshold: 10 })],
+      stockRows: [stock('i1', 250, '2026-09-01T00:00:00Z')],
+      lastCountedByItem: new Map([['i1', '2026-01-01T00:00:00Z']]),
+    })
+    expect(d.stale).toHaveLength(1)
+    expect(d.stale[0].quantity).toBe(250)
+    expect(d.lowStock).toHaveLength(0)
+  })
+
+  it('leaves low stock on the view\'s own figures, not the stale rows', () => {
+    // stockRows say 3 (below the threshold of 10); the stale map is empty.
+    // Low stock must still see 3, not the placeholder zero used for staleness.
+    const d = buildDigest({
+      ...base,
+      itemTypes: [makeItem({ id: 'i1', min_threshold: 10 })],
+      stockRows: [stock('i1', 3, '2026-09-01T00:00:00Z')],
+      lastCountedByItem: new Map(),
+    })
+    expect(d.lowStock).toHaveLength(1)
+    expect(d.lowStock[0].quantity).toBe(3)
   })
 })

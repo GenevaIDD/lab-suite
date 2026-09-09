@@ -225,3 +225,107 @@ export function findExpiredLots<T extends Lot>(lots: T[], today: Date = new Date
 }
 
 export { getExpiringLots }
+
+// ── Digest ────────────────────────────────────────────────────
+
+export interface DigestInput<
+  S extends AlertSchedule,
+  E extends AlertEquipment,
+  I extends AlertItemType,
+  L extends Lot,
+> {
+  equipment: E[]
+  schedules: S[]
+  itemTypes: I[]
+  /** Rows of the `current_stock` view. */
+  stockRows: AlertStockRow[]
+  /** Active (non-exhausted) lots. */
+  lots: L[]
+  /**
+   * True last-count dates keyed by item_type_id, read from `stock_counts`
+   * rather than the `current_stock` view. Supply this and the stale check
+   * stops being fooled by the view's max(lots.created_at) fallback — an item
+   * absent from the map has genuinely never been counted. Omit it and the
+   * stale check falls back to the view, with the under-reporting described
+   * on findStaleCounts.
+   */
+  lastCountedByItem?: Map<string, string>
+  today?: Date
+  staleDays?: number
+  expiryHorizonDays?: number
+}
+
+export interface Digest<
+  S extends AlertSchedule,
+  E extends AlertEquipment,
+  I extends AlertItemType,
+  L extends Lot,
+> {
+  generatedAt: string
+  overdue: MaintenanceAlert<S, E>[]
+  dueSoon: MaintenanceAlert<S, E>[]
+  lowStock: ItemStock<I>[]
+  expired: L[]
+  expiring: L[]
+  stale: StaleCountAlert<I>[]
+  /** Total rows across every section — what the email has to fit. */
+  total: number
+  /** True when nothing needs attention. Still worth sending; see api/weekly-digest.ts. */
+  isEmpty: boolean
+  staleDays: number
+  expiryHorizonDays: number
+}
+
+/**
+ * Run every check and collect the results.
+ *
+ * This is the whole content of the weekly email. It reads nothing and sends
+ * nothing — the caller does the I/O — so the digest can be built from
+ * fixtures in a test and from Postgres in production by the same code.
+ */
+export function buildDigest<
+  S extends AlertSchedule,
+  E extends AlertEquipment,
+  I extends AlertItemType,
+  L extends Lot,
+>(input: DigestInput<S, E, I, L>): Digest<S, E, I, L> {
+  const {
+    equipment, schedules, itemTypes, stockRows, lots,
+    lastCountedByItem,
+    today = new Date(),
+    staleDays = STALE_COUNT_DAYS,
+    expiryHorizonDays = EXPIRY_HORIZON_DAYS,
+  } = input
+
+  const { overdue, dueSoon } = findMaintenanceDue(schedules, equipment, today)
+  const lowStock = findLowStock(itemTypes, stockRows)
+  const expired = findExpiredLots(lots, today)
+  const expiring = getExpiringLots(lots, expiryHorizonDays)
+
+  // Prefer real count dates when the caller supplies them. Override ONLY
+  // last_counted_at and carry the view's real quantity through: findStaleCounts
+  // ignores quantity, but the rendered row shows it, and a placeholder here
+  // reports every stale item as empty. That shipped once in a preview --
+  // "Éthanol 96%: 0 boîtes" for an item that was fully stocked.
+  const stockByItem = new Map(stockRows.map((r) => [r.item_type_id, r]))
+  const staleRows: AlertStockRow[] = lastCountedByItem
+    ? itemTypes.map((item) => ({
+        item_type_id: item.id,
+        quantity: Number(stockByItem.get(item.id)?.quantity ?? 0),
+        last_counted_at: lastCountedByItem.get(item.id) ?? null,
+      }))
+    : stockRows
+  const stale = findStaleCounts(itemTypes, staleRows, staleDays, today)
+
+  const total = overdue.length + dueSoon.length + lowStock.length
+    + expired.length + expiring.length + stale.length
+
+  return {
+    generatedAt: today.toISOString(),
+    overdue, dueSoon, lowStock, expired, expiring, stale,
+    total,
+    isEmpty: total === 0,
+    staleDays,
+    expiryHorizonDays,
+  }
+}

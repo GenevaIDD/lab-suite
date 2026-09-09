@@ -3,5 +3,8 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/" }],
-  "crons": [{ "path": "/api/health", "schedule": "0 6 * * *" }]
+  "crons": [
+    { "path": "/api/health", "schedule": "0 6 * * *" },
+    { "path": "/api/weekly-digest", "schedule": "0 4 * * 1" }
+  ]
 }
