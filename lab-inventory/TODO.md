@@ -336,7 +336,7 @@ from four places (delivery upsert, the session RPC, the ad-hoc count form,
 discard), so demoting it means turning each into an event the view reads.
 Do the count correction above first -- it does not depend on this.
 
-## 7. Weekly digest email  ** shipped 2026-09-09, not yet fired **
+## 7. Weekly digest email  ** live since 2026-09-09 **
 
 Requested 2026-09-07: a Monday email covering maintenance overdue/upcoming,
 low stock, expired and expiring lots, items not counted in a while, and
@@ -345,8 +345,14 @@ deferred and is NOT built (`buildAnomalies` in stockCalc.ts predates this and
 is unrelated to the digest).
 
 Cron `0 4 * * 1` in vercel.json -- 04:00 UTC is 06:00 in Uvira. First
-automatic run: Monday 2026-09-14. Nothing has fired yet; every send so far
-has been manual.
+automatic run: Monday 2026-09-14.
+
+First real send went to all 7 recipients on 2026-09-09, triggered manually,
+reported as successful. That send stamped the alert columns, so from Monday
+onward NOUVEAU marks only newly-appearing problems rather than everything.
+Not independently verified -- CRON_SECRET is a Vercel "sensitive" variable
+and cannot be read back, so every send is triggered by a human and the
+response is the only evidence.
 
 ### Shape
 
@@ -415,15 +421,21 @@ on rebuilt stale rows, which rendered every stale item as empty --
 
 ### Known gaps
 
+- The stale section is capped at 10 rows of 26. Capping harder (5) was
+  suggested and not done; the /alerts page now makes the full list one click
+  away, so the cap costs less than it did.
 - **26 stale items, roughly half with `min_threshold = 0`** -- created,
   never given a threshold, never counted. findLowStock ignores them
   (nothing is below zero), so stale is the only place they surface. Whether
   to demote or exclude them is undecided; excluding would hide things like
   "Master mix, 0 plaquettes, jamais compté", which looks worth knowing.
-- Delivery is unproven beyond Resend accepting the message. A [TEST] send to
-  andrew.azman@unige.ch succeeded 2026-09-09 10:18 UTC; inbox rendering in
-  Gmail/Outlook has not been confirmed, and the sending domain
-  (mail.diseasedynamics.ch) has no reputation yet.
+- The sending domain (mail.diseasedynamics.ch) is new and has no reputation.
+  Deliverability to LSHTM and Oxfam addresses in particular is unproven; if
+  someone reports not receiving it, check their spam folder before assuming
+  the job failed.
+- The /alerts page has never been checked against real data by anyone who
+  wrote it. It typechecks and its deep links are tested, but the layout of a
+  26-row stale section has not been seen.
 - Lot-number sorting is lexicographic, correct only because these numbers are
   fixed-width.
 - No test covers api/weekly-digest.ts itself. alerts.ts and digestEmail.ts
