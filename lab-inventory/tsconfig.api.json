@@ -1,0 +1,34 @@
+{
+  // Vercel serverless functions. Separate from tsconfig.app.json because
+  // these run in Node, not the browser: no DOM lib, no JSX, and crucially no
+  // `@/*` path alias — Vercel's function build does not resolve the Vite
+  // alias, so anything api/ imports from src/ must be a relative path.
+  // Leaving that unenforced is how a function compiles locally and 404s in
+  // production.
+  //
+  // Referenced from tsconfig.json so `tsc -b` (i.e. `npm run build`) checks
+  // it. Before this file existed, api/ was outside every `include` and was
+  // never typechecked at all.
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "module": "esnext",
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["api", "src/lib/alerts.ts", "src/lib/lotCalc.ts"]
+}

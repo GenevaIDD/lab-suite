@@ -8,8 +8,14 @@ import { Wrench, Package, AlertTriangle, Clock, Loader2, CheckCircle2, MessageSq
 import { useEquipmentList, useMaintenanceSchedules, useItemTypes, useCurrentStock, useCategoryCoverage, useEquipmentObservations, useAllActiveLots } from '@/lib/queries'
 import { useLang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
-import { getExpiringLots } from '@/lib/lotCalc'
-import type { MaintenanceSchedule, Equipment, InventoryLot } from '@/types/database'
+import {
+  findMaintenanceDue,
+  findLowStock,
+  findExpiredLots,
+  getExpiringLots,
+  EXPIRY_HORIZON_DAYS,
+} from '@/lib/alerts'
+import type { InventoryLot } from '@/types/database'
 
 interface StockRow {
   item_type_id: string
@@ -30,39 +36,17 @@ export function Dashboard() {
   const { data: recentObs = [] } = useEquipmentObservations(undefined, 5)
   const { data: allActiveLots = [] } = useAllActiveLots()
 
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const expiredLots  = useMemo(() => allActiveLots.filter(l => l.expiry_date < todayStr), [allActiveLots, todayStr])
-  const expiringLots = useMemo(() => getExpiringLots(allActiveLots, 90), [allActiveLots])
+  // Detection lives in src/lib/alerts.ts so the weekly digest email applies
+  // exactly the same rules as this screen. Do not reimplement any of it here.
+  const expiredLots  = useMemo(() => findExpiredLots(allActiveLots), [allActiveLots])
+  const expiringLots = useMemo(() => getExpiringLots(allActiveLots, EXPIRY_HORIZON_DAYS), [allActiveLots])
 
-  const today = new Date()
+  const { overdue, dueSoon } = useMemo(
+    () => findMaintenanceDue(schedules, equipment),
+    [schedules, equipment],
+  )
 
-  const { overdue, dueSoon } = useMemo(() => {
-    const equipmentMap = new Map(equipment.map((e) => [e.id, e]))
-    const overdue: Array<{ schedule: MaintenanceSchedule; equipment: Equipment }> = []
-    const dueSoon: Array<{ schedule: MaintenanceSchedule; equipment: Equipment; days: number }> = []
-
-    for (const s of schedules) {
-      const eq = equipmentMap.get(s.equipment_id)
-      if (!eq) continue
-      const days = differenceInDays(parseISO(s.next_due), today)
-      if (days < 0) overdue.push({ schedule: s, equipment: eq })
-      else if (days <= s.lead_days) dueSoon.push({ schedule: s, equipment: eq, days })
-    }
-
-    dueSoon.sort((a, b) => a.days - b.days)
-    return { overdue, dueSoon }
-  }, [schedules, equipment])
-
-  const lowStock = useMemo(() => {
-    const stockByItem = new Map(stockRows.map((r) => [r.item_type_id, r]))
-    return itemTypes
-      .map((i) => {
-        const row = stockByItem.get(i.id)
-        return { ...i, quantity: Number(row?.quantity ?? 0), last_counted_at: row?.last_counted_at ?? null }
-      })
-      .filter((i) => i.quantity < i.min_threshold)
-      .sort((a, b) => a.quantity - b.quantity) // out of stock (0) first
-  }, [itemTypes, stockRows])
+  const lowStock = useMemo(() => findLowStock(itemTypes, stockRows), [itemTypes, stockRows])
 
   const loading = loadingEquipment || loadingSchedules
 
