@@ -170,3 +170,87 @@ describe('english rendering', () => {
     expect(out.html).toContain('20d overdue')
   })
 })
+
+// ── lot grouping ──────────────────────────────────────────────
+
+describe('lot grouping', () => {
+  // Reproduces real production data: one delivery of nine identical kits,
+  // recorded as nine lots with sequential numbers, which filled 9 of the 12
+  // rows in the expiring section.
+  const kits = Array.from({ length: 9 }, (_, i) => lot({
+    id: `k${i}`,
+    item_type_id: 'kit',
+    manufacturer: 'Bioperfectus',
+    lot_number: `T2025100030020${i}`,
+    expiry_date: '2026-10-19',
+    quantity_initial: 1,
+    quantity_remaining: 1,
+    item_type: { name: 'Bioperfectus Cholera Kit', unit: 'boîtes' },
+  }))
+  const other = lot({
+    id: 'apw', item_type_id: 'apw', manufacturer: 'Himedia', lot_number: 'LQU0466',
+    expiry_date: '2026-10-31', quantity_remaining: 746,
+    item_type: { name: 'APW (aliquotes 5 mL)', unit: 'flacons' },
+  })
+  const digest = digestWith({ lots: [...kits, other] })
+  const out = renderDigestEmail(digest, { appUrl: APP })
+
+  it('collapses nine identical lots into one row', () => {
+    const sections = buildSections(digest, 'fr', APP, DEFAULT_MAX_ROWS)
+    expect(sections).toHaveLength(1)
+    expect(sections[0].rows).toHaveLength(2)
+  })
+
+  it('lists every lot number in the group, in order', () => {
+    expect(out.html).toContain('lots T20251000300200, T20251000300201')
+    expect(out.html).toContain('T20251000300208')
+  })
+
+  it('sums the grouped quantity', () => {
+    expect(out.html).toContain('· 9 boîtes')
+  })
+
+  it('counts lots that have no number instead of dropping them', () => {
+    const d = digestWith({ lots: [
+      lot({ id: 'a', lot_number: 'ABC', expiry_date: '2026-10-19', item_type: { name: 'X' } }),
+      lot({ id: 'b', lot_number: null,  expiry_date: '2026-10-19', item_type: { name: 'X' } }),
+      lot({ id: 'c', lot_number: null,  expiry_date: '2026-10-19', item_type: { name: 'X' } }),
+    ] })
+    const html = renderDigestEmail(d, { appUrl: APP }).html
+    expect(html).toContain('lot ABC')
+    expect(html).toContain('2 sans numéro')
+  })
+
+  it('keeps the true lot count in the heading', () => {
+    expect(out.html).toContain('(10)')
+  })
+
+  it('keeps a lone lot\'s own number', () => {
+    expect(out.html).toContain('lot LQU0466')
+  })
+
+  it('does not group lots that differ by expiry date', () => {
+    const d = digestWith({ lots: [
+      lot({ id: 'a', expiry_date: '2026-10-19' }),
+      lot({ id: 'b', expiry_date: '2026-10-20' }),
+    ] })
+    expect(buildSections(d, 'fr', APP, DEFAULT_MAX_ROWS)[0].rows).toHaveLength(2)
+  })
+
+  it('does not group lots from different manufacturers', () => {
+    const d = digestWith({ lots: [
+      lot({ id: 'a', manufacturer: 'KH Medical' }),
+      lot({ id: 'b', manufacturer: 'Mast group' }),
+    ] })
+    expect(buildSections(d, 'fr', APP, DEFAULT_MAX_ROWS)[0].rows).toHaveLength(2)
+  })
+
+  it('counts hidden ROWS not hidden lots when capping', () => {
+    // 9 lots collapse to 1 row, so with a cap of 1 nothing is hidden.
+    const sections = buildSections(digestWith({ lots: kits }), 'fr', APP, 1)
+    expect(sections[0].total).toBe(9)
+    expect(sections[0].hiddenRows).toBe(0)
+    expect(renderDigestEmail(digestWith({ lots: kits }), { appUrl: APP, maxRows: 1 }).html)
+      .not.toContain('autre(s)')
+  })
+})

@@ -92,8 +92,11 @@ interface Row {
 interface Section {
   title: string
   rows: Row[]
-  /** Total before capping. */
+  /** Underlying items (lots, not rows) — what the heading reports. */
   total: number
+  /** Rows suppressed by the cap. Not the same as total - rows.length once
+   *  lots are grouped: one row can stand for nine lots. */
+  hiddenRows: number
 }
 
 export function buildSections<
@@ -110,14 +113,43 @@ export function buildSections<
   const cap = <T,>(items: T[]): T[] => items.slice(0, maxRows)
   const sections: Section[] = []
 
+  /**
+   * Collapse lots that differ only by lot number.
+   *
+   * A single delivery of nine identical kits is recorded as nine lots with
+   * sequential numbers, and rendered one-per-row it buries everything else
+   * in the section — real production data had nine Bioperfectus rows out of
+   * twelve. Same item, same manufacturer, same expiry date is one thing to
+   * act on, so it gets one row carrying the combined quantity and a count.
+   */
+  const groupLots = (lots: L[]): { lots: L[]; qty: number }[] => {
+    const groups = new Map<string, { lots: L[]; qty: number }>()
+    for (const l of lots) {
+      const key = `${l.item_type_id}|${l.manufacturer}|${l.expiry_date}`
+      const g = groups.get(key)
+      if (g) { g.lots.push(l); g.qty += l.quantity_remaining }
+      else groups.set(key, { lots: [l], qty: l.quantity_remaining })
+    }
+    return [...groups.values()]
+  }
+
   const lotName = (l: L): string => l.item_type?.name ?? '—'
-  const lotDetail = (l: L): string => {
-    const bits = [l.manufacturer]
-    if (l.lot_number) bits.push(`lot ${l.lot_number}`)
+  const groupDetail = (g: { lots: L[]; qty: number }): string => {
+    const first = g.lots[0]
+    const bits = [first.manufacturer]
+    // Every lot number, not a count: they are what you read off the boxes on
+    // the shelf, so a row you cannot act on without opening the app is only
+    // half a row. Sorted so sequential numbers from one delivery read in order.
+    const numbers = g.lots.map((l) => l.lot_number).filter((n): n is string => !!n).sort()
+    const unnumbered = g.lots.length - numbers.length
+    if (numbers.length) {
+      bits.push(`${tr(lang, numbers.length > 1 ? 'digest.lots' : 'digest.lot')} ${numbers.join(', ')}`)
+    }
+    if (unnumbered > 0) bits.push(tr(lang, 'digest.lots.unnumbered', { n: unnumbered }))
     // Unit included when the join provides it: a bare "274" reads as a lot
     // number rather than a quantity.
-    const unit = l.item_type?.unit
-    bits.push(unit ? `${fmtQty(l.quantity_remaining)} ${unit}` : fmtQty(l.quantity_remaining))
+    const unit = first.item_type?.unit
+    bits.push(unit ? `${fmtQty(g.qty)} ${unit}` : fmtQty(g.qty))
     return bits.join(' · ')
   }
 
@@ -125,6 +157,7 @@ export function buildSections<
     sections.push({
       title: tr(lang, 'digest.section.overdue'),
       total: digest.overdue.length,
+      hiddenRows: Math.max(0, digest.overdue.length - maxRows),
       rows: cap(digest.overdue).map((m) => ({
         primary: m.equipment.name,
         secondary: m.schedule.label,
@@ -140,6 +173,7 @@ export function buildSections<
     sections.push({
       title: tr(lang, 'digest.section.duesoon'),
       total: digest.dueSoon.length,
+      hiddenRows: Math.max(0, digest.dueSoon.length - maxRows),
       rows: cap(digest.dueSoon).map((m) => ({
         primary: m.equipment.name,
         secondary: m.schedule.label,
@@ -154,6 +188,7 @@ export function buildSections<
     sections.push({
       title: tr(lang, 'digest.section.low'),
       total: digest.lowStock.length,
+      hiddenRows: Math.max(0, digest.lowStock.length - maxRows),
       rows: cap(digest.lowStock).map((i) => ({
         primary: i.name,
         secondary: tr(lang, 'digest.stock', { q: fmtQty(i.quantity), u: i.unit, m: fmtQty(i.min_threshold) }),
@@ -166,28 +201,32 @@ export function buildSections<
   }
 
   if (digest.expired.length) {
+    const groups = groupLots(digest.expired)
     sections.push({
       title: tr(lang, 'digest.section.expired'),
       total: digest.expired.length,
-      rows: cap(digest.expired).map((l) => ({
-        primary: lotName(l),
-        secondary: lotDetail(l),
-        badge: tr(lang, 'digest.expired.on', { d: fmtDate(l.expiry_date) }),
+      hiddenRows: Math.max(0, groups.length - maxRows),
+      rows: cap(groups).map((g) => ({
+        primary: lotName(g.lots[0]),
+        secondary: groupDetail(g),
+        badge: tr(lang, 'digest.expired.on', { d: fmtDate(g.lots[0].expiry_date) }),
         urgent: true,
-        href: `${appUrl}/inventory/items/${l.item_type_id}`,
+        href: `${appUrl}/inventory/items/${g.lots[0].item_type_id}`,
       })),
     })
   }
 
   if (digest.expiring.length) {
+    const groups = groupLots(digest.expiring)
     sections.push({
       title: tr(lang, 'digest.section.expiring', { n: digest.expiryHorizonDays }),
       total: digest.expiring.length,
-      rows: cap(digest.expiring).map((l) => ({
-        primary: lotName(l),
-        secondary: lotDetail(l),
-        badge: tr(lang, 'digest.expires.on', { d: fmtDate(l.expiry_date) }),
-        href: `${appUrl}/inventory/items/${l.item_type_id}`,
+      hiddenRows: Math.max(0, groups.length - maxRows),
+      rows: cap(groups).map((g) => ({
+        primary: lotName(g.lots[0]),
+        secondary: groupDetail(g),
+        badge: tr(lang, 'digest.expires.on', { d: fmtDate(g.lots[0].expiry_date) }),
+        href: `${appUrl}/inventory/items/${g.lots[0].item_type_id}`,
       })),
     })
   }
@@ -196,6 +235,7 @@ export function buildSections<
     sections.push({
       title: tr(lang, 'digest.section.stale', { n: digest.staleDays }),
       total: digest.stale.length,
+      hiddenRows: Math.max(0, digest.stale.length - maxRows),
       rows: cap(digest.stale).map((i) => ({
         primary: i.name,
         secondary: tr(lang, 'digest.stock', { q: fmtQty(i.quantity), u: i.unit, m: fmtQty(i.min_threshold) }),
@@ -246,7 +286,7 @@ function renderRow(row: Row, lang: DigestLang): string {
 }
 
 function renderSection(section: Section, lang: DigestLang): string {
-  const hidden = section.total - section.rows.length
+  const hidden = section.hiddenRows
   const more = hidden > 0
     ? `<div style="font-size:12px;color:${MUTED};padding-top:8px;font-family:${FONT};">${esc(tr(lang, 'digest.more', { n: hidden }))}</div>`
     : ''
@@ -321,8 +361,7 @@ export function renderDigestEmail<
         const isNew = r.isNew ? ` *${tr(lang, 'digest.new')}*` : ''
         textLines.push(`  - ${r.primary}${isNew} — ${r.secondary}${badge}`)
       }
-      const hidden = s.total - s.rows.length
-      if (hidden > 0) textLines.push(`  ${tr(lang, 'digest.more', { n: hidden })}`)
+      if (s.hiddenRows > 0) textLines.push(`  ${tr(lang, 'digest.more', { n: s.hiddenRows })}`)
       textLines.push('')
     }
   }
